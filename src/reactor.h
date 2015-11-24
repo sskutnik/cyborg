@@ -44,8 +44,7 @@ class reactor : public cyclus::Facility  {
 
   #pragma cyclus
 
-  #pragma cyclus note {"doc": "A stub facility is provided as a skeleton " \
-                              "for the design of new facility agents."}
+  #pragma cyclus note {"doc": "A stub facility is provided as a skeleton for the design of new facility agents."}
 
   /// A verbose printer for the reactor
   virtual std::string str();
@@ -61,6 +60,13 @@ class reactor : public cyclus::Facility  {
   /// @param time the time of the tock
   virtual void Tock();
 
+  virtual void Load_();
+
+  virtual void Discharge_(int);
+
+  virtual cyclus::Material::Ptr Deplete_(cyclus::Material::Ptr);
+
+  int reactor_time;
   /* Module Members */
 
   /// Level 1 Parameters
@@ -88,23 +94,32 @@ class reactor : public cyclus::Facility  {
 
   #pragma cyclus var {"tooltip":"Power capacity",\
                       "doc":"Reactor power capacity (MW)",\
+                      "units":"MW",\
                       "uilabel":"Power Capacity"}
   double power_cap;
 
   #pragma cyclus var {"tooltip":"Fuel capacity",\
                       "doc":"Total reactor fuel capacity (MT)",\
+                      "units":"MT",\
                       "uilabel":"Fuel Capacity"}
   double fuel_capacity;
 
   #pragma cyclus var {"tooltip":"Cycle length",\
                       "doc":"Time to complete an entire cycle",\
-                      "uilabel":"Cycle Length"}
-  double cycle_length;
+                      "uilabel":"Cycle Length",\
+                      "units":"time steps"}
+  int cycle_length;
 
   #pragma cyclus var {"tooltip":"Capacity factor",\
                       "doc":"Reactor capacity factor",\
                       "uilabel":"Capacity Factor"}
-  double cap_factor;  
+  double cap_factor; 
+
+  #pragma cyclus var {"tooltip":"Reactor lifetime",\
+                      "doc":"Reactor lifetime",\
+                      "uilabel":"Reactor Lifetime",\
+                      "units":"time steps"}
+  int reactor_lifetime; 
 
   /// Level 2 Parameters
 
@@ -139,6 +154,9 @@ class reactor : public cyclus::Facility  {
                                                                      
   #pragma cyclus var {"tooltip":"Incoming material buffer"}
   cyclus::toolkit::ResBuf<cyclus::Material> fresh_inventory;
+
+  #pragma cyclus var {"tooltip":"Fuel buffer"}
+  cyclus::toolkit::ResBuf<cyclus::Material> fuel;
 
   #pragma cyclus var {"tooltip":"Outgoing material buffer"}
   cyclus::toolkit::ResBuf<cyclus::Material> spent_inventory;
