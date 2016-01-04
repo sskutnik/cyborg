@@ -67,6 +67,7 @@ class reactor : public cyclus::Facility  {
   virtual cyclus::Material::Ptr Deplete_(cyclus::Material::Ptr);
 
   int reactor_time;
+  bool decom;
   /* Module Members */
 
   /// Level 1 Parameters
