@@ -8,6 +8,11 @@ void cyclus2origen::set_lib_names(const std::vector<std::string> &lib_names){
   b_lib_names=lib_names;
 }
 
+void cyclus2origen::set_lib_path(const std::string lib_path){
+  Check(ScaleUtils::IO::directoryExists(lib_path));
+  b_lib_path=lib_path;
+}
+
 void cyclus2origen::add_lib_names(const std::vector<std::string> &lib_names){
   for(auto lib : lib_names) b_lib_names.push_back(lib);
 }
@@ -37,6 +42,12 @@ void cyclus2origen::set_id_tag(const std::string idname, const std::string idval
   b_tm->setIdTag(idname,idvalue);
 }
 
+void cyclus2origen::set_id_tags(const std::map<std::string,std::string> &tags){
+  for(auto tag : tags){
+    this->set_id_tag(tag.first,tag.second);
+  }
+}
+
 void cyclus2origen::remove_id_tag(const std::string idname){
   Check(b_tm!=NULL);
   Check(b_tm->hasTag(idname));
@@ -61,7 +72,18 @@ void cyclus2origen::get_id_tags(std::vector<std::string> &names, std::vector<std
   }
 }
 
-void cyclus2origen::set_materials(const std::vector<int> &ids, const std::vector<double> &concs){
+void cyclus2origen::set_materials_with_masses(std::vector<int> &ids, const std::vector<double> &masses){
+  Check(b_lib!=NULL);
+  Check(ids.size()>0);
+  Check(ids.size()==masses.size());
+  std::vector<double> concs;
+  for(size_t i = 0; i < ids.size(); i++){
+    concs.push_back(ConcentrationConverter::convert_to(ConcentrationUnit::CM_2_BARN,id[i],ConcentrationUnit::KILOGRAMS,masses[i],b_vol));
+  }
+  this->set_materials(ids,concs);
+}
+
+void cyclus2origen::set_materials(std::vector<int> &ids, const std::vector<double> &concs){
   Check(b_lib!=NULL);
   Check(b_vol>0);
   Check(ids.size()>0);
@@ -69,9 +91,9 @@ void cyclus2origen::set_materials(const std::vector<int> &ids, const std::vector
   std::string name = "cyclus_";
   name.append(b_interp_name);
   int id = 1001;
-  for(auto id : ids){
-    if(ScaleData::Utils::is_valid_zzzaaai(id)) id = ScaleData::Utils::zzzaaai_to_pizzzaaa(id);
-    Check(ScaleData::Utils::is_valid_pizzzaaa(id));
+  for(size_t i = 0; i < ids.size(); i++){
+    if(ScaleData::Utils::is_valid_zzzaaai(ids[i])) ids[i] = ScaleData::Utils::zzzaaai_to_pizzzaaa(ids[i]);
+    Check(ScaleData::Utils::is_valid_pizzzaaa(ids[i]));
   }
   Origen::SP_Material mat(new Origen::Material(b_lib,name,id,b_vol));
   mat->set_numden_bos(concs,ids,b_vol);
@@ -99,6 +121,12 @@ void cyclus2origen::set_powers(const std::vector<double> &powers){
 void cyclus2origen::add_parameter(const std::string name, const double value){
   if(b_tm==NULL) b_tm = SP_TagManager(new TagManager());
   b_tm->setInterpTag(name,value);
+}
+
+void cyclus2origen::add_parameters(const std::map<std::string,double> &params){
+  for(auto param : params){
+    this->add_parameter(param.first,param.second);
+  }
 }
 
 void cyclus2origen::remove_parameter(const std::string name){
@@ -139,7 +167,19 @@ void cyclus2origen::get_parameters(std::vector<std::string> &names, std::vector<
 void cyclus2origen::interpolate(){
   Check(b_tm!=NULL);
   Check(b_tm->listIdTags().size()!=0);
-  Check(b_lib_names.size()!=0);
+  Check(b_lib_names.size()!=0 || b_lib_path.size()!=0);
+  struct dirent *drnt;
+  if(b_lib_names.size()==0){
+    // figure out how to grab filenames from a directory.
+    DIR dr = opendir(b_lib_path);
+    while(true){
+      drnt=readdir();
+      if(!drnt) break;
+      if(drnt->d_name()=='.' || drnt->d_name()=='..') continue;
+      b_lib_names.push_back(drnt->d_name);
+    }
+    closedir(dr);
+  }
   std::vector<SP_TagManager> tms = Origen::collectLibraries(b_lib_names);
   std::vector<TagManager> tagman;
   for(auto& tm : tms) tagman.push_back(*tm);
@@ -229,6 +269,43 @@ void cyclus2origen::get_concentrations_final(std::vector<double> &concs_out) con
   for(size_t i = 0; i < vals->size(); i++){
     concs_out.push_back(vals->at(i));
   }
+}
+
+void cyclus2origen::get_masses(std::vector<std::vector<double> > &masses_out) const{
+  Check(masses_out.empty());
+  std::vector<std::vector<double> > concs;
+  this->get_concentrations(concs);
+  std::vector<int> ids;
+  this->get_ids(ids);
+  Check(ids.size()==concs[0].size());
+  for(size_t i = 0; i < concs.size(); i++){
+    std::vector<double> tmp;
+    for(size_t j = 0; j < concs[0].size(); j++){
+      tmp.push_back(ConcentrationConverter::convert_to(ConcentrationUnit::KILOGRAMS,ids[i],ConcentrationUnit::CM_2_BARN,concs[i][j],b_vol));
+    }
+    masses_out.push_back(tmp);
+  }
+}
+
+void cyclus2origen::get_masses_at(int p, std::vector<double> &masses_out) const{
+  Check(masses_out.empty());
+  std::vector<double> concs;
+  this->get_concentrations_at(p,concs);
+  std::vector<int> ids;
+  this->get_ids(ids);
+  for(size_t i = 0; i < concs.size(); i++){
+    masses_out.push_back(ConcentrationConverter::convert_to(ConcentrationUnit::KILOGRAMS,ids[i],ConcentrationUnit::CM_2_BARN,concs[i],b_vol));
+  }
+}
+
+void cyclus2origen::get_masses_final(std::vector<double> &masses_out) const{
+  Check(masses_out.empty());
+  std::vector<double> concs;
+  this->get_concentrations_final(concs);
+  std::vector<int> ids;
+  this->get_ids(ids);
+  for(size_t i = 0; i < concs.size(); i++){
+    masses_out.push_back(concentrationConverter::convert_to(ConcentrationUnit::KILOGRAMS,ids[i],ConcentrationUnit::CM_2_BARN,concs[i],b_vol));
 }
 
 void cyclus2origen::get_ids(std::vector<int> &ids_out) const{
