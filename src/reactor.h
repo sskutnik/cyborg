@@ -62,7 +62,7 @@ class reactor : public cyclus::Facility  {
 
   virtual void Load_();
 
-  virtual void Discharge_(int);
+  virtual void Discharge_(double);
 
   virtual cyclus::Material::Ptr Deplete_(cyclus::Material::Ptr);
 
@@ -93,8 +93,8 @@ class reactor : public cyclus::Facility  {
                       "uilabel":"Power Name"}
   std::string power_name;
 
-  #pragma cyclus var {"tooltip":"Power capacity",\
-                      "doc":"Reactor power capacity (MW)",\
+  #pragma cyclus var {"tooltip":"Thermal Power capacity",\
+                      "doc":"Reactor thermal power capacity (MW)",\
                       "units":"MW",\
                       "uilabel":"Power Capacity"}
   double power_cap;
@@ -121,6 +121,11 @@ class reactor : public cyclus::Facility  {
                       "uilabel":"Reactor Lifetime",\
                       "units":"time steps"}
   int reactor_lifetime; 
+
+  #pragma cyclus var {"tooltip":"Path to ORIGEN Libraries",\
+                      "doc":"Path to ORIGEN Libraries",\
+                      "uilabel":"Path to ORIGEN Libraries"}
+  std::string lib_path;
 
   /// Level 2 Parameters
 
