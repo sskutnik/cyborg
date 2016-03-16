@@ -1,6 +1,8 @@
 #include <string>
 #include <vector>
+#include <dirent.h>
 #include "Origen/Core/Definitions.h"
+#include "Origen/Core/dc/ConcentrationConverter.h"
 #include "Origen/Core/dc/ConcentrationUnit.h"
 #include "Origen/Core/dc/Library.h"
 #include "Origen/Core/dc/Material.h"
@@ -13,6 +15,7 @@
 //#include "Origen/Solver/cram/Solver_cram.h"
 #include "Origen/Solver/SolverSelector.h"
 #include "ScaleUtils/IO/DB.h"
+#include "ScaleUtils/IO/Utils.h"
 
 /*!
  * \note - 
@@ -37,11 +40,11 @@
  *         be available through the get_* calls.
  *
  *         Streamlined version would be:
- *         set_lib_name->set_id_tag->add_parameter->interpolate
+ *         set_lib_path->set_id_tag->add_parameter->interpolate
  *           --Gets you a problem specific library at default burnups.
  *
- *         set_volume->set_materials->solve(times,fluxes)->
- *         get_ids->get_concentrations.
+ *         set_materials_with_masses->solve(times,fluxes)->
+ *         get_ids->get_masses.
  *           --Gets you material concentrations at specified burnups.
  *
  *         set_materials->solve(times,fluxes)->get_ids->get_concentrations
@@ -62,6 +65,13 @@ public:
      **          which libraries exist on disk.
      */
     void set_lib_names(const std::vector<std::string>&);
+
+    /*!
+     ** \brief - Function to set the path to a directory of libraries.
+     ** \param - String prepresenting a path to tagged ORIGEN
+     **          libraries for use in interpolation and depletion.
+     */
+    void set_lib_path(const std::string);
 
     /*!
      ** \brief - Function to add library names to the already
@@ -101,6 +111,14 @@ public:
     void set_id_tag(const std::string, const std::string);
 
     /*!
+     ** \brief - Function to set multiple id_tags at a time using
+     **          a standard map container holding all of the
+     **          name-value pairs for the tags.
+     ** \param - Map containing the name-value pairs for the tags.
+     */
+    void set_id_tags(const std::map<std::string,std::string>&);
+
+    /*!
      ** \brief - Delete an ID tag.
      ** \param - String name of ID tag to be removed.
      */
@@ -119,10 +137,16 @@ public:
     void get_id_tags(std::vector<std::string>&, std::vector<std::string>&) const;
 
     /*!
-     ** \brief - Set the initial vector of nuclide IDs.
-     ** \param - Vector of integers of nuclide IDs.
+     ** \brief - Function to set the initial materials to be depleted
+     **          that accepts masses as the quantity input.  This function
+     **          converts the masses into concentration units (cm_2_barn)
+     **          and then uses that to call the set_materials function.
+     ** \param - Vector of ids.  As this function calls set_materials,
+     **          the types of IDs accepted are the same.
+     ** \param - Vector of masses corresponding to the vector of IDs.
+     **          Units are currently hard-coded to kilograms.
      */
-    void set_init_ids(const std::vector<int>&);
+    void set_materials_with_masses(std::vector<int>&,const std::vector<double>&);
 
     /*!
     ** \brief - Function to set the initial materials to be depleted.
@@ -131,7 +155,7 @@ public:
     ** \param - Vector of concentrations.  Should directly correspond
     **              to the vector of ids.
     */
-    void set_materials(const std::vector<int>&, const std::vector<double>&);
+    void set_materials(std::vector<int>&, const std::vector<double>&);
 
     /*!
      ** \brief - Function to set the units used in the concentrations vectors.
@@ -143,7 +167,7 @@ public:
      ** \brief - Function to set the volume of material being depleted.
      ** \param - Volume of the material being processed.  in g/cc?
      */
-    void set_volume(const double vol){b_vol=vol;};
+//    void set_volume(const double vol){b_vol=vol;};
 
     /*!
      ** \brief - Function to set the times at which a burn step will end,
@@ -194,6 +218,20 @@ public:
      ** \param - Double for interp_tag value on TagManager.
      */
     void add_parameter(const std::string, const double);
+
+    /*!
+     ** \brief - Method for adding parameters all at once
+     **          by using a std::map.
+     ** \param - std::map of parameter/interp_tag names and
+     **          values, std::string and double, respectively.
+     */
+    void add_parameters(const std::map<std::string,double>&);
+
+    /*!
+     ** \brief - Function to set multiple parameters at once.
+     ** \param - Map of name-value pairs for the parameter tags.
+     */
+    void set_parameters(const std::map<std::string,double>&);
 
     /*!
      ** \brief - Remove an interpolable tag.
@@ -256,7 +294,7 @@ public:
      **         populated vectors.  The other should have size==0.
      */
     
-    void solve(const std::vector<double>& times, const std::vector<double>& fluxes, const std::vector<double>& powers);
+    void solve(std::vector<double>& times,std::vector<double>& fluxes,std::vector<double>& powers);
 
     /*!
      ** \brief - Function to retrieve all of the concentrations at
@@ -283,6 +321,12 @@ public:
      **          of final burn step.
      */
     void get_concentrations_final(std::vector<double>&) const;
+
+    void get_masses(std::vector<std::vector<double>>&) const;
+
+    void get_masses_at(int,std::vector<double>&) const;
+
+    void get_masses_final(std::vector<double>&) const;
 
     /*!
      ** \brief - Function to return the IDs that correspond to the
@@ -318,7 +362,7 @@ protected:
      ** \note - It is assumed that either fluxes or powers will be an empty
      **         vector.  Anything else will throw an error.
      */
-    void prob_spec_lib(SP_Library,std::vector<double>& times,std::vector<double>& fluxes,std::vector<double>& powers) const;
+    void prob_spec_lib(SP_Library,std::vector<double> &times,std::vector<double> &fluxes,std::vector<double> &powers);
 
     SP_Library b_lib;
     SP_TagManager b_tm;
@@ -326,8 +370,9 @@ protected:
     SP_NuclideSet b_nucset;
 //    Solver_cram b_slv;
     std::vector<std::string> b_lib_names;
+    std::string b_lib_path;
     std::string b_interp_name;
-    double b_vol;
+    const double b_vol=1.;
     std::vector<int> b_ids;
     std::vector<double> b_concs;
     std::vector<double> b_burnups;

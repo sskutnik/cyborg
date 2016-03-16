@@ -8,6 +8,11 @@ void cyclus2origen::set_lib_names(const std::vector<std::string> &lib_names){
   b_lib_names=lib_names;
 }
 
+void cyclus2origen::set_lib_path(const std::string lib_path){
+  Check(ScaleUtils::IO::directoryExists(lib_path));
+  b_lib_path=lib_path;
+}
+
 void cyclus2origen::add_lib_names(const std::vector<std::string> &lib_names){
   for(auto lib : lib_names) b_lib_names.push_back(lib);
 }
@@ -37,6 +42,12 @@ void cyclus2origen::set_id_tag(const std::string idname, const std::string idval
   b_tm->setIdTag(idname,idvalue);
 }
 
+void cyclus2origen::set_id_tags(const std::map<std::string,std::string> &tags){
+  for(auto tag : tags){
+    this->set_id_tag(tag.first,tag.second);
+  }
+}
+
 void cyclus2origen::remove_id_tag(const std::string idname){
   Check(b_tm!=NULL);
   Check(b_tm->hasTag(idname));
@@ -61,7 +72,19 @@ void cyclus2origen::get_id_tags(std::vector<std::string> &names, std::vector<std
   }
 }
 
-void cyclus2origen::set_materials(const std::vector<int> &ids, const std::vector<double> &concs){
+void cyclus2origen::set_materials_with_masses(std::vector<int> &ids, const std::vector<double> &masses){
+  Check(b_lib!=NULL);
+  Check(ids.size()>0);
+  Check(ids.size()==masses.size());
+  std::vector<double> concs;
+  ConcentrationConverter cv;
+  for(size_t i = 0; i < ids.size(); i++){
+    concs.push_back(cv.convert_to(ConcentrationUnit::CM_2_BARN,ids[i],ConcentrationUnit::KILOGRAMS,masses[i],b_vol));
+  }
+  this->set_materials(ids,concs);
+}
+
+void cyclus2origen::set_materials(std::vector<int> &ids, const std::vector<double> &concs){
   Check(b_lib!=NULL);
   Check(b_vol>0);
   Check(ids.size()>0);
@@ -69,9 +92,9 @@ void cyclus2origen::set_materials(const std::vector<int> &ids, const std::vector
   std::string name = "cyclus_";
   name.append(b_interp_name);
   int id = 1001;
-  for(auto id : ids){
-    if(ScaleData::Utils::is_valid_zzzaaai(id)) id = ScaleData::Utils::zzzaaai_to_pizzzaaa(id);
-    Check(ScaleData::Utils::is_valid_pizzzaaa(id));
+  for(size_t i = 0; i < ids.size(); i++){
+    if(ScaleData::Utils::is_valid_zzzaaai(ids[i])) ids[i] = ScaleData::Utils::zzzaaai_to_pizzzaaa(ids[i]);
+    Check(ScaleData::Utils::is_valid_pizzzaaa(ids[i]));
   }
   Origen::SP_Material mat(new Origen::Material(b_lib,name,id,b_vol));
   mat->set_numden_bos(concs,ids,b_vol);
@@ -99,6 +122,12 @@ void cyclus2origen::set_powers(const std::vector<double> &powers){
 void cyclus2origen::add_parameter(const std::string name, const double value){
   if(b_tm==NULL) b_tm = SP_TagManager(new TagManager());
   b_tm->setInterpTag(name,value);
+}
+
+void cyclus2origen::add_parameters(const std::map<std::string,double> &params){
+  for(auto param : params){
+    this->add_parameter(param.first,param.second);
+  }
 }
 
 void cyclus2origen::remove_parameter(const std::string name){
@@ -139,7 +168,20 @@ void cyclus2origen::get_parameters(std::vector<std::string> &names, std::vector<
 void cyclus2origen::interpolate(){
   Check(b_tm!=NULL);
   Check(b_tm->listIdTags().size()!=0);
-  Check(b_lib_names.size()!=0);
+  Check(b_lib_names.size()!=0 || b_lib_path.size()!=0);
+  struct dirent *drnt;
+  if(b_lib_names.size()==0){
+    // figure out how to grab filenames from a directory.
+    auto dr = opendir(b_lib_path.c_str());
+    while(true){
+      drnt=readdir(dr);
+      if(!drnt) break;
+      if(drnt->d_name=="." || drnt->d_name=="..") continue;
+      std::string lib_name (drnt->d_name);
+      b_lib_names.push_back(lib_name);
+    }
+    closedir(dr);
+  }
   std::vector<SP_TagManager> tms = Origen::collectLibraries(b_lib_names);
   std::vector<TagManager> tagman;
   for(auto& tm : tms) tagman.push_back(*tm);
@@ -165,17 +207,17 @@ void cyclus2origen::solve(){
     if(b_fluxes.size()==0){
       b_mat->set_flux(b_powers[i]/b_mat->power_factor_bos());
     }else if(b_powers.size()==0){
-      b_mat->set_fluxes(b_fluxes[i]);
+      b_mat->set_flux(b_fluxes[i]);
     }
-    b_slv.set_transition_matrix( &*b_mat->transition_matrix() );
+    solver->set_transition_matrix( &*b_mat->transition_matrix() );
     Origen::SP_Vec_Dbl n0 = b_mat->amount_bos();
     Origen::SP_Vec_Dbl n1 = b_mat->amount_eos();
-    b_slv.solve(*n0,b_mat->flux(),b_mat->dt(),&*n1);
-    b_slv.clear();
+    solver->solve(*n0,b_mat->flux(),b_mat->dt(),&*n1);
+    solver->clear();
   }
 }
 
-void cyclus2origen::solve(const std::vector<double>& times, const std::vector<double>& fluxes, const std::vector<double>& powers){
+void cyclus2origen::solve(std::vector<double>& times, std::vector<double>& fluxes, std::vector<double>& powers){
   Check(b_mat!=NULL);
   Check(fluxes.size()>0||powers.size()>0);
   Check(fluxes.size()==(times.size()-1)||powers.size()==(times.size()-1));
@@ -184,7 +226,7 @@ void cyclus2origen::solve(const std::vector<double>& times, const std::vector<do
   db.set<std::string>("solver","cram");
   solver = SolverSelector::get_solver(db);
   b_mat->set_solver(solver);
-  prob_spec_lib(b_lib,&times,&fluxes,&powers);
+  prob_spec_lib(b_lib,times,fluxes,powers);
   size_t num_steps = powers.size()>fluxes.size() ? powers.size() : fluxes.size();
   for(size_t i = 0; i < num_steps; i++){
     b_mat->allocate_step();
@@ -196,11 +238,11 @@ void cyclus2origen::solve(const std::vector<double>& times, const std::vector<do
     }
     b_mat->set_dt(times[i+1]-times[i]);
 
-    b_slv.set_transition_matrix( &*b_mat->transition_matrix() );
+    solver->set_transition_matrix( &*b_mat->transition_matrix() );
     Origen::SP_Vec_Dbl n0 = b_mat->amount_bos();
     Origen::SP_Vec_Dbl n1 = b_mat->amount_eos();
-    b_slv.solve(*n0,b_mat->flux(),b_mat->dt(),&*n1);
-    b_slv.clear();
+    solver->solve(*n0,b_mat->flux(),b_mat->dt(),&*n1);
+    solver->clear();
   }
 }
 
@@ -231,6 +273,47 @@ void cyclus2origen::get_concentrations_final(std::vector<double> &concs_out) con
   }
 }
 
+void cyclus2origen::get_masses(std::vector<std::vector<double> > &masses_out) const{
+  Check(masses_out.empty());
+  std::vector<std::vector<double> > concs;
+  this->get_concentrations(concs);
+  std::vector<int> ids;
+  this->get_ids(ids);
+  Check(ids.size()==concs[0].size());
+  ConcentrationConverter cv;
+  for(size_t i = 0; i < concs.size(); i++){
+    std::vector<double> tmp;
+    for(size_t j = 0; j < concs[0].size(); j++){
+      tmp.push_back(cv.convert_to(ConcentrationUnit::KILOGRAMS,ids[i],ConcentrationUnit::CM_2_BARN,concs[i][j],b_vol));
+    }
+    masses_out.push_back(tmp);
+  }
+}
+
+void cyclus2origen::get_masses_at(int p, std::vector<double> &masses_out) const{
+  Check(masses_out.empty());
+  std::vector<double> concs;
+  this->get_concentrations_at(p,concs);
+  std::vector<int> ids;
+  this->get_ids(ids);
+  ConcentrationConverter cv;
+  for(size_t i = 0; i < concs.size(); i++){
+    masses_out.push_back(cv.convert_to(ConcentrationUnit::KILOGRAMS,ids[i],ConcentrationUnit::CM_2_BARN,concs[i],b_vol));
+  }
+}
+
+void cyclus2origen::get_masses_final(std::vector<double> &masses_out) const{
+  Check(masses_out.empty());
+  std::vector<double> concs;
+  this->get_concentrations_final(concs);
+  std::vector<int> ids;
+  this->get_ids(ids);
+  ConcentrationConverter cv;
+  for(size_t i = 0; i < concs.size(); i++){
+    masses_out.push_back(cv.convert_to(ConcentrationUnit::KILOGRAMS,ids[i],ConcentrationUnit::CM_2_BARN,concs[i],b_vol));
+  }
+}
+
 void cyclus2origen::get_ids(std::vector<int> &ids_out) const{
   ids_out = *(b_mat->sizzzaaa_list());
 }
@@ -241,9 +324,7 @@ void cyclus2origen::get_ids_zzzaaai(std::vector<int> &ids_out) const{
   }
 }
 
-private:
-
-void cyclus2origen::prob_spec_lib(SP_Library lib,std::vector<double> &times,std::vector<double> &fluxes,std::vector<double> &powers) const{
+void cyclus2origen::prob_spec_lib(SP_Library lib,std::vector<double> &times,std::vector<double> &fluxes,std::vector<double> &powers){
   if(b_time_units!=Time::DAYS){
     for(auto& time : times) time /= Time::factor(b_time_units,Time::DAYS);
   }
@@ -256,7 +337,7 @@ void cyclus2origen::prob_spec_lib(SP_Library lib,std::vector<double> &times,std:
   Check(times.size()==powers.size()+1);
   for(size_t i = 0; i < powers.size(); i++){
 // 1e3 factor arises from converting powers from watts to megawatts and mass from g to MT.
-    burnups.push_back(1e3*powers[i]*(times[i+1]-times[i])/b_mat->initial_hm_mass())
+    burnups.push_back(1e3*powers[i]*(times[i+1]-times[i])/b_mat->initial_hm_mass());
   }
   Check(burnups.size()==powers.size());
   lib->interpolate_Interp1D(burnups);
