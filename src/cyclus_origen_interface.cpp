@@ -77,8 +77,9 @@ void cyclus2origen::set_materials_with_masses(std::vector<int> &ids, const std::
   Check(ids.size()>0);
   Check(ids.size()==masses.size());
   std::vector<double> concs;
+  ConcentrationConverter cv;
   for(size_t i = 0; i < ids.size(); i++){
-    concs.push_back(ConcentrationConverter::convert_to(ConcentrationUnit::CM_2_BARN,id[i],ConcentrationUnit::KILOGRAMS,masses[i],b_vol));
+    concs.push_back(cv.convert_to(ConcentrationUnit::CM_2_BARN,ids[i],ConcentrationUnit::KILOGRAMS,masses[i],b_vol));
   }
   this->set_materials(ids,concs);
 }
@@ -171,12 +172,13 @@ void cyclus2origen::interpolate(){
   struct dirent *drnt;
   if(b_lib_names.size()==0){
     // figure out how to grab filenames from a directory.
-    DIR dr = opendir(b_lib_path);
+    auto dr = opendir(b_lib_path.c_str());
     while(true){
-      drnt=readdir();
+      drnt=readdir(dr);
       if(!drnt) break;
-      if(drnt->d_name()=='.' || drnt->d_name()=='..') continue;
-      b_lib_names.push_back(drnt->d_name);
+      if(drnt->d_name=="." || drnt->d_name=="..") continue;
+      std::string lib_name (drnt->d_name);
+      b_lib_names.push_back(lib_name);
     }
     closedir(dr);
   }
@@ -205,17 +207,17 @@ void cyclus2origen::solve(){
     if(b_fluxes.size()==0){
       b_mat->set_flux(b_powers[i]/b_mat->power_factor_bos());
     }else if(b_powers.size()==0){
-      b_mat->set_fluxes(b_fluxes[i]);
+      b_mat->set_flux(b_fluxes[i]);
     }
-    b_slv.set_transition_matrix( &*b_mat->transition_matrix() );
+    solver->set_transition_matrix( &*b_mat->transition_matrix() );
     Origen::SP_Vec_Dbl n0 = b_mat->amount_bos();
     Origen::SP_Vec_Dbl n1 = b_mat->amount_eos();
-    b_slv.solve(*n0,b_mat->flux(),b_mat->dt(),&*n1);
-    b_slv.clear();
+    solver->solve(*n0,b_mat->flux(),b_mat->dt(),&*n1);
+    solver->clear();
   }
 }
 
-void cyclus2origen::solve(const std::vector<double>& times, const std::vector<double>& fluxes, const std::vector<double>& powers){
+void cyclus2origen::solve(std::vector<double>& times, std::vector<double>& fluxes, std::vector<double>& powers){
   Check(b_mat!=NULL);
   Check(fluxes.size()>0||powers.size()>0);
   Check(fluxes.size()==(times.size()-1)||powers.size()==(times.size()-1));
@@ -224,7 +226,7 @@ void cyclus2origen::solve(const std::vector<double>& times, const std::vector<do
   db.set<std::string>("solver","cram");
   solver = SolverSelector::get_solver(db);
   b_mat->set_solver(solver);
-  prob_spec_lib(b_lib,&times,&fluxes,&powers);
+  prob_spec_lib(b_lib,times,fluxes,powers);
   size_t num_steps = powers.size()>fluxes.size() ? powers.size() : fluxes.size();
   for(size_t i = 0; i < num_steps; i++){
     b_mat->allocate_step();
@@ -236,11 +238,11 @@ void cyclus2origen::solve(const std::vector<double>& times, const std::vector<do
     }
     b_mat->set_dt(times[i+1]-times[i]);
 
-    b_slv.set_transition_matrix( &*b_mat->transition_matrix() );
+    solver->set_transition_matrix( &*b_mat->transition_matrix() );
     Origen::SP_Vec_Dbl n0 = b_mat->amount_bos();
     Origen::SP_Vec_Dbl n1 = b_mat->amount_eos();
-    b_slv.solve(*n0,b_mat->flux(),b_mat->dt(),&*n1);
-    b_slv.clear();
+    solver->solve(*n0,b_mat->flux(),b_mat->dt(),&*n1);
+    solver->clear();
   }
 }
 
@@ -278,10 +280,11 @@ void cyclus2origen::get_masses(std::vector<std::vector<double> > &masses_out) co
   std::vector<int> ids;
   this->get_ids(ids);
   Check(ids.size()==concs[0].size());
+  ConcentrationConverter cv;
   for(size_t i = 0; i < concs.size(); i++){
     std::vector<double> tmp;
     for(size_t j = 0; j < concs[0].size(); j++){
-      tmp.push_back(ConcentrationConverter::convert_to(ConcentrationUnit::KILOGRAMS,ids[i],ConcentrationUnit::CM_2_BARN,concs[i][j],b_vol));
+      tmp.push_back(cv.convert_to(ConcentrationUnit::KILOGRAMS,ids[i],ConcentrationUnit::CM_2_BARN,concs[i][j],b_vol));
     }
     masses_out.push_back(tmp);
   }
@@ -293,8 +296,9 @@ void cyclus2origen::get_masses_at(int p, std::vector<double> &masses_out) const{
   this->get_concentrations_at(p,concs);
   std::vector<int> ids;
   this->get_ids(ids);
+  ConcentrationConverter cv;
   for(size_t i = 0; i < concs.size(); i++){
-    masses_out.push_back(ConcentrationConverter::convert_to(ConcentrationUnit::KILOGRAMS,ids[i],ConcentrationUnit::CM_2_BARN,concs[i],b_vol));
+    masses_out.push_back(cv.convert_to(ConcentrationUnit::KILOGRAMS,ids[i],ConcentrationUnit::CM_2_BARN,concs[i],b_vol));
   }
 }
 
@@ -304,8 +308,10 @@ void cyclus2origen::get_masses_final(std::vector<double> &masses_out) const{
   this->get_concentrations_final(concs);
   std::vector<int> ids;
   this->get_ids(ids);
+  ConcentrationConverter cv;
   for(size_t i = 0; i < concs.size(); i++){
-    masses_out.push_back(concentrationConverter::convert_to(ConcentrationUnit::KILOGRAMS,ids[i],ConcentrationUnit::CM_2_BARN,concs[i],b_vol));
+    masses_out.push_back(cv.convert_to(ConcentrationUnit::KILOGRAMS,ids[i],ConcentrationUnit::CM_2_BARN,concs[i],b_vol));
+  }
 }
 
 void cyclus2origen::get_ids(std::vector<int> &ids_out) const{
@@ -318,9 +324,7 @@ void cyclus2origen::get_ids_zzzaaai(std::vector<int> &ids_out) const{
   }
 }
 
-private:
-
-void cyclus2origen::prob_spec_lib(SP_Library lib,std::vector<double> &times,std::vector<double> &fluxes,std::vector<double> &powers) const{
+void cyclus2origen::prob_spec_lib(SP_Library lib,std::vector<double> &times,std::vector<double> &fluxes,std::vector<double> &powers){
   if(b_time_units!=Time::DAYS){
     for(auto& time : times) time /= Time::factor(b_time_units,Time::DAYS);
   }
@@ -333,7 +337,7 @@ void cyclus2origen::prob_spec_lib(SP_Library lib,std::vector<double> &times,std:
   Check(times.size()==powers.size()+1);
   for(size_t i = 0; i < powers.size(); i++){
 // 1e3 factor arises from converting powers from watts to megawatts and mass from g to MT.
-    burnups.push_back(1e3*powers[i]*(times[i+1]-times[i])/b_mat->initial_hm_mass())
+    burnups.push_back(1e3*powers[i]*(times[i+1]-times[i])/b_mat->initial_hm_mass());
   }
   Check(burnups.size()==powers.size());
   lib->interpolate_Interp1D(burnups);

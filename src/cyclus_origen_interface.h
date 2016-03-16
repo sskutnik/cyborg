@@ -1,5 +1,6 @@
 #include <string>
 #include <vector>
+#include <dirent.h>
 #include "Origen/Core/Definitions.h"
 #include "Origen/Core/dc/ConcentrationConverter.h"
 #include "Origen/Core/dc/ConcentrationUnit.h"
@@ -154,7 +155,7 @@ public:
     ** \param - Vector of concentrations.  Should directly correspond
     **              to the vector of ids.
     */
-    void set_materials(const std::vector<int>&, const std::vector<double>&);
+    void set_materials(std::vector<int>&, const std::vector<double>&);
 
     /*!
      ** \brief - Function to set the units used in the concentrations vectors.
@@ -166,7 +167,7 @@ public:
      ** \brief - Function to set the volume of material being depleted.
      ** \param - Volume of the material being processed.  in g/cc?
      */
-    void set_volume(const double vol){b_vol=vol;};
+//    void set_volume(const double vol){b_vol=vol;};
 
     /*!
      ** \brief - Function to set the times at which a burn step will end,
@@ -217,6 +218,14 @@ public:
      ** \param - Double for interp_tag value on TagManager.
      */
     void add_parameter(const std::string, const double);
+
+    /*!
+     ** \brief - Method for adding parameters all at once
+     **          by using a std::map.
+     ** \param - std::map of parameter/interp_tag names and
+     **          values, std::string and double, respectively.
+     */
+    void add_parameters(const std::map<std::string,double>&);
 
     /*!
      ** \brief - Function to set multiple parameters at once.
@@ -285,7 +294,7 @@ public:
      **         populated vectors.  The other should have size==0.
      */
     
-    void solve(const std::vector<double>& times, const std::vector<double>& fluxes, const std::vector<double>& powers);
+    void solve(std::vector<double>& times,std::vector<double>& fluxes,std::vector<double>& powers);
 
     /*!
      ** \brief - Function to retrieve all of the concentrations at
@@ -353,7 +362,7 @@ protected:
      ** \note - It is assumed that either fluxes or powers will be an empty
      **         vector.  Anything else will throw an error.
      */
-    void prob_spec_lib(SP_Library,std::vector<double>& times,std::vector<double>& fluxes,std::vector<double>& powers) const;
+    void prob_spec_lib(SP_Library,std::vector<double> &times,std::vector<double> &fluxes,std::vector<double> &powers);
 
     SP_Library b_lib;
     SP_TagManager b_tm;
