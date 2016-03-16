@@ -83,8 +83,8 @@ INCLUDE(UseCyclus)
 FIND_PACKAGE(LibXML++ REQUIRED)
 SET(STUB_INCLUDE_DIRS ${STUB_INCLUDE_DIRS} ${LibXML++_INCLUDE_DIR} ${Glibmm_INCLUDE_DIRS} ${LibXML++Config_INCLUDE_DIR})
 SET(LIBS ${LIBS} ${LibXML++_LIBRARIES})
-MESSAGE("--LIBS: ${LIBS}")
 
+MESSAGE("--LIBS: ${LIBS}")
 MESSAGE("--LD_LIBRARY_PATH: $ENV{LD_LIBRARY_PATH}")
 
 # Include the boost header files, system, and filesystem libraries
@@ -127,10 +127,11 @@ MESSAGE("--    SQLITE3 Include directories: ${SQLITE3_INCLUDE_DIR}")
 MESSAGE("--    SQLITE3 Libraries: ${SQLITE3_LIBRARIES}")
 
 # Find Qt libraries (required for ORIGEN)
-FIND_PACKAGE( Qt REQUIRED )
-SET(STUB_INCLUDE_DIRS ${STUB_INCLUDE_DIRS} ${QT_INCLUDE_DIRS} )
-set(LIBS ${LIBS} ${QT_LIBRARIES})
-
+# Note that ${QT_USE_FILE} sets up required libraries for Qt
+# See https://cmake.org/cmake/help/cmake2.6docs.html#module%3aFindQt4
+FIND_PACKAGE( Qt COMPONENTS QtCore REQUIRED )
+include(${QT_USE_FILE})
+SET(STUB_INCLUDE_DIRS ${STUB_INCLUDE_DIRS} ${QT_INCLUDE_DIR} )
 
 # find SCALE libraries (for ORIGEN)
 FIND_PACKAGE(SCALE REQUIRED)
@@ -139,7 +140,6 @@ set(LIBS ${LIBS} ${SCALE_LIBRARIES})
 
 # include all the directories we just found
 INCLUDE_DIRECTORIES(${STUB_INCLUDE_DIRS})
-
 
 # add the agents
 ADD_SUBDIRECTORY(src)
