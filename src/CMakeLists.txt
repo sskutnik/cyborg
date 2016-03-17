@@ -1,6 +1,8 @@
 #################################################################
 ######### build libOrigenInterface ##############################
 #################################################################
+# add unit tests
+enable_testing()
 
 INCLUDE_DIRECTORIES(
     "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -28,7 +30,6 @@ INSTALL(
 
 
 SET(LIBS ${LIBS} OrigenInterface PARENT_SCOPE)
-
 
 #################################################################
 
