@@ -21,7 +21,6 @@ MESSAGE(STATUS "Using ${SCALE_ROOT_DIR} as SCALE_ROOT_DIR.")
 # defined dirs
 FIND_PATH(ORIGEN_INCLUDE_DIR origen_config.h
     HINTS "${SCALE_ROOT_DIR}" 
-    "${SCALE_ROOT_DIR}"
     "${SCALE_ROOT_DIR}/${CMAKE_SYSTEM_NAME}_${CMAKE_SYSTEM_PROCESSOR}"
     /opt/scale6.2b5
     PATH_SUFFIXES include include/Origen/Core )
