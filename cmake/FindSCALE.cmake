@@ -20,9 +20,9 @@ MESSAGE(STATUS "Using ${SCALE_ROOT_DIR} as SCALE_ROOT_DIR.")
 # Set the include dir, this will be the future basis for other
 # defined dirs
 FIND_PATH(ORIGEN_INCLUDE_DIR origen_config.h
-    HINTS "${SCALE_ROOT_DIR}" 
+    HINTS ${SCALE_ROOT_DIR}
     "${SCALE_ROOT_DIR}/${CMAKE_SYSTEM_NAME}_${CMAKE_SYSTEM_PROCESSOR}"
-    /opt/scale6.2b5
+    PATHS /opt/scale6.2b5
     PATH_SUFFIXES include include/Origen/Core )
 
 # Add the root dir to the hints
@@ -30,16 +30,16 @@ SET(SCALE_INCLUDE_DIR "${ORIGEN_INCLUDE_DIR}/../..")
 
 # Look for the library
 FIND_LIBRARY(ORIGEN_CORE_LIBRARY NAMES OrigenCore
-    HINTS "${SCALE_ROOT_DIR}" 
+    HINTS ${SCALE_ROOT_DIR}
     "${SCALE_ROOT_DIR}/${CMAKE_SYSTEM_NAME}_${CMAKE_SYSTEM_PROCESSOR}"
-    /opt/scale6.2b5
+    PATHS /opt/scale6.2b5
     PATH_SUFFIXES lib)
 
 # Copy the results to the output variables.
 IF(SCALE_INCLUDE_DIR AND ORIGEN_CORE_LIBRARY)
     SET(SCALE_FOUND 1)
-    SET(SCALE_LIBRARIES "${ORIGEN_CORE_LIBRARY}")
-    SET(SCALE_INCLUDE_DIRS "${SCALE_INCLUDE_DIR}")
+    SET(SCALE_LIBRARIES ${ORIGEN_CORE_LIBRARY})
+    SET(SCALE_INCLUDE_DIRS ${SCALE_INCLUDE_DIR})
 ELSE()
     SET(SCALE_FOUND 0)
     SET(SCALE_LIBRARIES)
