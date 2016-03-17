@@ -69,17 +69,32 @@ void reactor::Discharge_(double core_fraction) {
 }
 
 cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat) {
-	std::vector<int> in_ids;
+	// Set ORIGEN library path
+    set_lib_path(lib_path);
+    
+    // Set ID tags 
+    set_id_tag("Assembly Type",assembly_type);
+    
+    // Set Interpolable parameters
+    add_parameter("Enrichment",enrichment);
+    
+    // Create cross-section library
+    interpolate();
+    
+    // Pass nuclide IDs and masses to ORIGEN
+    std::vector<int> in_ids;
+    std::vector<double> mass_fraction;
 
-	// Get fuel recipe and convert to ORIGEN format
-	cyclus::Composition::Ptr comp_in = context()->GetRecipe(fuel_recipe);
+        // Get fuel recipe and convert to ORIGEN format
+	cyclus::Composition::Ptr comp_in = mat.comp();
 	cyclus::CompMap mappy = comp_in->mass();
 	for(std::map<int,double>::iterator it = mappy.begin(); it!=mappy.end(); it++){
-	int id = it->first;
-	double mass_fraction = it->second;
-	// convert id 
-	in_ids.push_back(pyne::nucname::zzaaam(id));
+        int id = it->first;
+        mass_fraction.push_back(it->second);
+            // convert id 
+        in_ids.push_back(pyne::nucname::zzaaam(id));
 	}
+        // normalize mass fractions
 
 	//dummy org_id and org_atom until ORIGEN functions implemented
 	std::vector<int> org_id;

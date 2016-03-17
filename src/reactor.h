@@ -4,6 +4,7 @@
 #include <string>
 
 #include "cyclus.h"
+#include "cyclus_origen_interface.h"
 
 namespace cyborg {
 
@@ -126,6 +127,11 @@ class reactor : public cyclus::Facility  {
                       "doc":"Path to ORIGEN Libraries",\
                       "uilabel":"Path to ORIGEN Libraries"}
   std::string lib_path;
+  
+  #pragma cyclus var {"tooltip":"Fresh fuel enrichment",\
+                      "doc":"Fresh fuel enrichment",\
+                      "uilabel":"Fresh Fuel Enrichment"}
+  double enrichment;
 
   /// Level 2 Parameters
 
