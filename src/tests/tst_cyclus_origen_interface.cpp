@@ -85,7 +85,7 @@ int main(int argc, char ** argv){
   
 // Setting the volume of the material in the problem.
 
-  tester.set_volume(3);
+//  tester.set_volume(3);
   
 // Setting the vector of nuclide IDs using the sizzzaaa format.
 // Will allow for alternative formats in the future.

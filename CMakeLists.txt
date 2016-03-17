@@ -148,6 +148,11 @@ INCLUDE_DIRECTORIES(${STUB_INCLUDE_DIRS})
 # add the agents
 ADD_SUBDIRECTORY(src)
 
+# add tests for the ORIGEN interface
+enable_testing()
+ADD_SUBDIRECTORY(src/tests)
+ADD_TEST( NAME tstOrigenInterface COMMAND tstCyclusOrigenInterface )
+
 # uninstall target
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
