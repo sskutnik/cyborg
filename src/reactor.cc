@@ -96,6 +96,31 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat) {
         in_ids.push_back(pyne::nucname::zzaaam(id));
 	}
         // normalize mass fractions
+    std::vector<double>::iterator big = std::max_element(mass_fraction.begin(),mass_fraction.end());
+    std::vector<double>::iterator little = std::min_element(mass_fraction.begin(),mass_fraction.end());
+    std::vector<double> norm_mass;
+    double mat_mass = mat->quantity();
+    double norm;
+    for(std::vector<double>::iterator it = mass_fraction.begin(); it!=mass_fraction.end(); it++){
+        norm = (*it - *little)/(*big - *little) * (mat_mass);
+        norm_mass.push_back(norm);
+    }
+    react.set_materials_with_masses(in_ids,norm_mass);
+    
+    // Set depletion time
+    std::vector<double> dp_time;
+    dp_time.push_back(cycle_length);
+    react.set_time_steps(dp_time);
+    react.set_time_units("months");
+    
+    // Set reactor power 
+    std::vector<double> dp_pow;
+    dp_pow.push_back(power_cap*1000000);
+    react.set_powers(dp_pow);
+    
+    // Run Calculation
+    react.solve();
+    
 
 	//dummy org_id and org_atom until ORIGEN functions implemented
 	std::vector<int> org_id;
