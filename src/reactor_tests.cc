@@ -47,7 +47,7 @@ void reactorTest::SetUpReactor(){
   src_facility_->enrichment = enrichment;
 }
 
-void reactorTest::TestInitState(Storage* fac){
+void reactorTest::TestInitState(cyborg::reactor* fac){
   EXPECT_EQ(in_r1, fac->fuel_recipe);
   EXPECT_EQ(in_c1, fac->fresh_fuel);
   EXPECT_EQ(out_c1, fac->spent_fuel);

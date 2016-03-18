@@ -157,6 +157,24 @@ enable_testing()
 ADD_SUBDIRECTORY(src/tests)
 ADD_TEST( NAME tstOrigenInterface COMMAND tstCyclusOrigenInterface )
 
+SET(TestSource
+        ${TestSource}
+        ${CYBORG_TEST_CORE}
+        )
+# Build cyborg_unit_tests
+ADD_EXECUTABLE(cyborg_unit_tests
+    src/tests/cyborg_unit_test_driver.cc
+    ${TestSource}
+    )
+
+TARGET_LINK_LIBRARIES(cyborg_unit_tests
+    dl ${LIBS} ${CYCLUS_TEST_LIBRARIES})
+
+INSTALL(TARGETS cyborg_unit_tests
+    RUNTIME DESTINATION bin
+    COMPONENT testing
+    )
+
 # uninstall target
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
