@@ -32,7 +32,6 @@ SET(LIBS ${LIBS} OrigenInterface PARENT_SCOPE)
 #################################################################
 
 ### DO NOT DELETE THIS COMMENT: INSERT_ARCHETYPES_HERE ###
-SET(CYCLUS_CUSTOM_HEADERS "cyclus_origen_interface.h")
 USE_CYCLUS("cyborg" "reactor")
 
 INSTALL_CYCLUS_MODULE("cyborg" "" "NONE")
