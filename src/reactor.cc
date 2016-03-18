@@ -69,26 +69,27 @@ void reactor::Discharge_(double core_fraction) {
 }
 
 cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat) {
-	// Set ORIGEN library path
-    set_lib_path(lib_path);
+	cyclus2origen react;
+    
+    // Set ORIGEN library path
+    react.set_lib_path(lib_path);
     
     // Set ID tags 
-    set_id_tag("Assembly Type",assembly_type);
+    react.set_id_tag("Assembly Type",assembly_type);
     
     // Set Interpolable parameters
-    add_parameter("Enrichment",enrichment);
+    react.add_parameter("Enrichment",enrichment);
     
     // Create cross-section library
-    interpolate();
+    react.interpolate();
     
     // Pass nuclide IDs and masses to ORIGEN
     std::vector<int> in_ids;
     std::vector<double> mass_fraction;
 
         // Get fuel recipe and convert to ORIGEN format
-	cyclus::Composition::Ptr comp_in = mat.comp();
-	cyclus::CompMap mappy = comp_in->mass();
-	for(std::map<int,double>::iterator it = mappy.begin(); it!=mappy.end(); it++){
+	cyclus::CompMap comp_in = mat->comp()->mass();
+	for(std::map<int,double>::iterator it = comp_in.begin(); it!=comp_in.end(); it++){
         int id = it->first;
         mass_fraction.push_back(it->second);
             // convert id 
