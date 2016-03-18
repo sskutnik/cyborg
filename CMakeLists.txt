@@ -29,6 +29,10 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_DEFAULT_SOURCE")
 # no overflow warnings because of silly coin-ness
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-overflow")
 
+# ORIGEN requires C++11
+SET(CMAKE_CXX_STANDARD 11)
+SET(CXX_STANDARD_REQUIRED ON )
+
 # Direct any out-of-source builds to this directory
 SET(STUB_SOURCE_DIR ${CMAKE_SOURCE_DIR})
 
