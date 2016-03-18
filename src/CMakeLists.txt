@@ -29,7 +29,6 @@ INSTALL(
 
 SET(LIBS ${LIBS} OrigenInterface PARENT_SCOPE)
 
-
 #################################################################
 
 ### DO NOT DELETE THIS COMMENT: INSERT_ARCHETYPES_HERE ###

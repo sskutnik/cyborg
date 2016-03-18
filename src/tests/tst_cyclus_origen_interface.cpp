@@ -1,4 +1,4 @@
-/*! 
+/*!
  *  \file - tst_cyclus_origen_interface.cpp
  *  \author - Nicholas C. Sly
  */
@@ -7,7 +7,7 @@
 
 int main(int argc, char ** argv){
   cyclus2origen tester;
-  
+
 // Library names should be specified as string literals.  Names can
 // be given as absolute or relative pathnames if the library is not
 // in the current directory.
