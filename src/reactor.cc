@@ -120,26 +120,22 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat) {
     
     // Run Calculation
     react.solve();
-    
 
-	//dummy org_id and org_atom until ORIGEN functions implemented
-	std::vector<int> org_id;
-	std::vector<double> org_atom;
-
-	// After ORIGEN depletion - convert nuclide ids back to Cyclus format
-	std::vector<int> out_id;
+	// Get materials and convert nuclide ids back to Cyclus format
+	std::vector<int> org_id, out_id;
+    react.get_ids_zzzaaai(org_id);
 	for(std::vector<int>::iterator i=org_id.begin(); i!=org_id.end(); i++){
 	out_id.push_back(pyne::nucname::id(*i));
 	}
-	// need to get mass fraction data from ORIGEN
+	// Get mass data from ORIGEN
+    std::vector<double> org_atom;
+    react.get_concentrations_final(org_atom);
 	cyclus::CompMap v;
 	for(int j=0; j!=out_id.size(); ++j){
 		v[out_id[j]] = org_atom[j];
 	}
-
-
+    
 	cyclus::Composition::Ptr comp_out = cyclus::Composition::CreateFromAtom(v);
-
 	mat->Transmute(comp_out);
 
 	return mat;
