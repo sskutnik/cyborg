@@ -2,6 +2,10 @@
 ######### build libOrigenInterface ##############################
 #################################################################
 
+# Configure the default ORIGEN library directory
+SET(ORGLIB_DIR "$ENV{DATA}")
+CONFIGURE_FILE(orglib_default_location.h.in "${CMAKE_CURRENT_SOURCE_DIR}/orglib_default_location.h" @ONLY)
+
 INCLUDE_DIRECTORIES(
     "${CMAKE_CURRENT_SOURCE_DIR}"
     )
