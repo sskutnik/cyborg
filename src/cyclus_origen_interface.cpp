@@ -124,7 +124,7 @@ void cyclus2origen::add_parameter(const std::string name, const double value){
   b_tm->setInterpTag(name,value);
 }
 
-void cyclus2origen::add_parameters(const std::map<std::string,double> &params){
+void cyclus2origen::set_parameters(const std::map<std::string,double> &params){
   for(auto param : params){
     this->add_parameter(param.first,param.second);
   }
