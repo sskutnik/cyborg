@@ -1,21 +1,50 @@
 <simulation>
   <control>
-    <duration>10</duration>
+    <duration>15</duration>
     <startmonth>1</startmonth>
     <startyear>2000</startyear>
   </control>
 
   <archetypes>
-    <spec><path>/home/jenny/cyclus/cyborg</path><lib>cyborg</lib><name>reactor</name></spec>
+    <spec><lib>cyborg</lib><name>reactor</name></spec>
+    <spec><lib>cycamore</lib><name>Source</name></spec>
+    <spec><lib>cycamore</lib><name>Sink</name></spec>
     <spec><lib>agents</lib><name>NullInst</name></spec>
     <spec><lib>agents</lib><name>NullRegion</name></spec>
   </archetypes>
 
   <facility>
-    <name>OneFacility</name>
+    <name>Source</name>
     <config>
-      <reactor />
+      <Source>
+        <outcommod>UO2</outcommod>
+        <outrecipe>uo2</outrecipe>
+      </Source>
     </config>
+  </facility>
+
+  <facility>
+    <name>Reactor</name>
+    <config>
+      <reactor>
+        <fresh_fuel>UO2</fresh_fuel>
+        <fuel_recipe>uo2</fuel_recipe>
+        <spent_fuel>spent</spent_fuel>
+        <power_name>power</power_name>
+        <power_cap>200</power_cap>
+        <fuel_capacity>10</fuel_capacity>
+        <cycle_length>5</cycle_length>
+        <cap_factor>1</cap_factor>
+        <reactor_lifetime>10</reactor_lifetime>
+      </reactor>
+    </config>
+  </facility>
+  
+  <facility>
+    <name>Sink</name>
+    <Sink>
+        <incommods> <val>spent</val> </incommods>
+    </Sink>
   </facility>
 
   <region>
@@ -25,12 +54,26 @@
       <name>OneInst</name>
       <initialfacilitylist>
         <entry>
-          <prototype>OneFacility</prototype>
+          <prototype>Reactor</prototype>
+          <number>1</number>
+        </entry>
+        <entry>
+          <prototype>Source</prototype>
+          <number>1</number>
+        </entry>
+        <entry>
+          <prototype>Sink</prototype>
           <number>1</number>
         </entry>
       </initialfacilitylist>
       <config> <NullInst /> </config>
     </institution>
   </region>
+
+  <recipe>
+    <name>uo2</name>
+    <basis>mass</basis>
+    <nuclide> <id>U235</id> <comp>1</comp> </nuclide>
+  </recipe>
 
 </simulation>

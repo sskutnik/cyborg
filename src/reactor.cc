@@ -69,36 +69,73 @@ void reactor::Discharge_(double core_fraction) {
 }
 
 cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat) {
-	std::vector<int> in_ids;
+	cyclus2origen react;
+    
+    // Set ORIGEN library path
+    react.set_lib_path(lib_path);
+    
+    // Set ID tags 
+    react.set_id_tag("Assembly Type",assembly_type);
+    
+    // Set Interpolable parameters
+    react.add_parameter("Enrichment",enrichment);
+    
+    // Create cross-section library
+    react.interpolate();
+    
+    // Pass nuclide IDs and masses to ORIGEN
+    std::vector<int> in_ids;
+    std::vector<double> mass_fraction;
 
-	// Get fuel recipe and convert to ORIGEN format
-	cyclus::Composition::Ptr comp_in = context()->GetRecipe(fuel_recipe);
-	cyclus::CompMap mappy = comp_in->mass();
-	for(std::map<int,double>::iterator it = mappy.begin(); it!=mappy.end(); it++){
-	int id = it->first;
-	double mass_fraction = it->second;
-	// convert id 
-	in_ids.push_back(pyne::nucname::zzaaam(id));
+        // Get fuel recipe and convert to ORIGEN format
+	cyclus::CompMap comp_in = mat->comp()->mass();
+	for(std::map<int,double>::iterator it = comp_in.begin(); it!=comp_in.end(); it++){
+        int id = it->first;
+        mass_fraction.push_back(it->second);
+            // convert id 
+        in_ids.push_back(pyne::nucname::zzaaam(id));
 	}
+        // normalize mass fractions
+    std::vector<double>::iterator big = std::max_element(mass_fraction.begin(),mass_fraction.end());
+    std::vector<double>::iterator little = std::min_element(mass_fraction.begin(),mass_fraction.end());
+    std::vector<double> norm_mass;
+    double mat_mass = mat->quantity();
+    double norm;
+    for(std::vector<double>::iterator it = mass_fraction.begin(); it!=mass_fraction.end(); it++){
+        norm = (*it - *little)/(*big - *little) * (mat_mass);
+        norm_mass.push_back(norm);
+    }
+    react.set_materials_with_masses(in_ids,norm_mass);
+    
+    // Set depletion time
+    std::vector<double> dp_time;
+    dp_time.push_back(cycle_length);
+    react.set_time_steps(dp_time);
+    react.set_time_units("months");
+    
+    // Set reactor power 
+    std::vector<double> dp_pow;
+    dp_pow.push_back(power_cap*1000000);
+    react.set_powers(dp_pow);
+    
+    // Run Calculation
+    react.solve();
 
-	//dummy org_id and org_atom until ORIGEN functions implemented
-	std::vector<int> org_id;
-	std::vector<double> org_atom;
-
-	// After ORIGEN depletion - convert nuclide ids back to Cyclus format
-	std::vector<int> out_id;
+	// Get materials and convert nuclide ids back to Cyclus format
+	std::vector<int> org_id, out_id;
+    react.get_ids_zzzaaai(org_id);
 	for(std::vector<int>::iterator i=org_id.begin(); i!=org_id.end(); i++){
 	out_id.push_back(pyne::nucname::id(*i));
 	}
-	// need to get mass fraction data from ORIGEN
+	// Get mass data from ORIGEN
+    std::vector<double> org_atom;
+    react.get_concentrations_final(org_atom);
 	cyclus::CompMap v;
 	for(int j=0; j!=out_id.size(); ++j){
 		v[out_id[j]] = org_atom[j];
 	}
-
-
+    
 	cyclus::Composition::Ptr comp_out = cyclus::Composition::CreateFromAtom(v);
-
 	mat->Transmute(comp_out);
 
 	return mat;

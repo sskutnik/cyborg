@@ -9,18 +9,60 @@ namespace reactor {
 
 void reactorTest::SetUp() {
   src_facility_ = new cyborg::reactor(tc_.get());
-  // InitParameters();
-  // SetUpReactor();
+  InitParameters();
+  SetUpReactor();
 }
 
 void reactorTest::TearDown() {
   delete src_facility_;
 }
 
+void reactorTest::InitParameters(){
+  in_r1 = "in_r1";
+  in_c1 = "in_c1";
+  out_c1 = "out_c1";
+  power_cap = 100;
+  fuel_capacity = 20;
+  cycle_length = 1;
+  cap_factor = 0.9;
+  reactor_lifetime = 10;
+  enrichment = 4;
+
+  cyclus::CompMap v;
+  v[922350000] = 0.04;
+  v[922380000] = 0.96;
+  cyclus::Composition::Ptr recipe = cyclus::Composition::CreateFromAtom(v);
+  tc_.get()->AddRecipe(in_r1, recipe);
+}
+
+void reactorTest::SetUpReactor(){
+  src_facility_->fuel_recipe = in_r1;
+  src_facility_->fresh_fuel = in_c1;
+  src_facility_->spent_fuel = out_c1;
+  src_facility_->power_cap = power_cap;
+  src_facility_->fuel_capacity = fuel_capacity;
+  src_facility_->cycle_length = cycle_length;
+  src_facility_->cap_factor = cap_factor;
+  src_facility_->reactor_lifetime = reactor_lifetime;
+  src_facility_->enrichment = enrichment;
+}
+
+void reactorTest::TestInitState(Storage* fac){
+  EXPECT_EQ(in_r1, fac->fuel_recipe);
+  EXPECT_EQ(in_c1, fac->fresh_fuel);
+  EXPECT_EQ(out_c1, fac->spent_fuel);
+  EXPECT_EQ(power_cap, fac->power_cap);
+  EXPECT_EQ(fuel_capacity, fac->fuel_capacity);
+  EXPECT_EQ(cycle_length, fac->cycle_length);
+  EXPECT_EQ(cap_factor, fac->cap_factor);
+  EXPECT_EQ(reactor_lifetime, fac->reactor_lifetime);
+  EXPECT_EQ(enrichment, fac->enrichment);
+}
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 TEST_F(reactorTest, InitialState) {
   // Test things about the initial state of the facility here
+  TestInitState(src_facility_);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
