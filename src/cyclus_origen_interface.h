@@ -2,20 +2,14 @@
 #include <vector>
 #include <dirent.h>
 #include "Origen/Core/Definitions.h"
-#include "Origen/Core/dc/ConcentrationConverter.h"
 #include "Origen/Core/dc/ConcentrationUnit.h"
 #include "Origen/Core/dc/Library.h"
 #include "Origen/Core/dc/Material.h"
 #include "Origen/Core/dc/Power.h"
 #include "Origen/Core/dc/Time.h"
-#include "Origen/Core/fn/io.h"
-#include "Origen/Core/fn/interp.h"
-#include "Origen/Core/io/LibraryIO.h"
 //#include "Origen/Core/xf/Solver.h"
 //#include "Origen/Solver/cram/Solver_cram.h"
 #include "Origen/Solver/SolverSelector.h"
-#include "ScaleUtils/IO/DB.h"
-#include "ScaleUtils/IO/Utils.h"
 
 /*!
  * \note - 
@@ -51,8 +45,6 @@
  *           --After initial solve, materials can be set based on output
  *             of previous solve to solve for second cycle.
  */
-
-using namespace Origen;
 
 class cyclus2origen {
 
@@ -362,12 +354,12 @@ protected:
      ** \note - It is assumed that either fluxes or powers will be an empty
      **         vector.  Anything else will throw an error.
      */
-    void prob_spec_lib(SP_Library,std::vector<double> &times,std::vector<double> &fluxes,std::vector<double> &powers);
+    void prob_spec_lib(Origen::SP_Library,std::vector<double> &times,std::vector<double> &fluxes,std::vector<double> &powers);
 
-    SP_Library b_lib;
-    SP_TagManager b_tm;
-    SP_Material b_mat;
-    SP_NuclideSet b_nucset;
+    Origen::SP_Library b_lib;
+    Origen::SP_TagManager b_tm;
+    Origen::SP_Material b_mat;
+    Origen::SP_NuclideSet b_nucset;
 //    Solver_cram b_slv;
     std::vector<std::string> b_lib_names;
     std::string b_lib_path;
@@ -379,7 +371,7 @@ protected:
     std::vector<double> b_fluxes;
     std::vector<double> b_powers;
     std::vector<double> b_times;
-    ConcentrationUnit b_concs_units;
-    Time::UNITS b_time_units; // Default is seconds. Also accepts minutes,hours,days, and years.
-    Power::UNITS b_power_units; // Default is watts.
+    Origen::ConcentrationUnit b_concs_units;
+    Origen::Time::UNITS b_time_units; // Default is seconds. Also accepts minutes,hours,days, and years.
+    Origen::Power::UNITS b_power_units; // Default is watts.
 };

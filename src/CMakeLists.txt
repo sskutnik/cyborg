@@ -2,6 +2,10 @@
 ######### build libOrigenInterface ##############################
 #################################################################
 
+# Configure the default ORIGEN library directory
+SET(ORGLIB_DIR "$ENV{DATA}/arplibs")
+CONFIGURE_FILE(orglib_default_location.h.in "${CMAKE_CURRENT_SOURCE_DIR}/orglib_default_location.h" @ONLY)
+
 INCLUDE_DIRECTORIES(
     "${CMAKE_CURRENT_SOURCE_DIR}"
     )
@@ -32,7 +36,6 @@ SET(LIBS ${LIBS} OrigenInterface PARENT_SCOPE)
 #################################################################
 
 ### DO NOT DELETE THIS COMMENT: INSERT_ARCHETYPES_HERE ###
-SET(CYCLUS_CUSTOM_HEADERS "cyclus_origen_interface.h")
 USE_CYCLUS("cyborg" "reactor")
 
 INSTALL_CYCLUS_MODULE("cyborg" "" "NONE")
