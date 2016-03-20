@@ -1,6 +1,11 @@
 #include "cyclus_origen_interface.h"
+#include "Origen/Core/dc/ConcentrationConverter.h"
+#include "Origen/Core/fn/io.h"
+#include "Origen/Core/fn/interp.h"
+#include "Origen/Core/io/LibraryIO.h"
+#include "ScaleUtils/IO/DB.h"
+#include "ScaleUtils/IO/Utils.h"
 
-using namespace Origen;
 
 void cyclus2origen::set_lib_names(const std::vector<std::string> &lib_names){
   b_lib_names.clear();
@@ -38,7 +43,7 @@ void cyclus2origen::get_lib_names(std::vector<std::string> &lib_names) const{
 }
 
 void cyclus2origen::set_id_tag(const std::string idname, const std::string idvalue){
-  if(b_tm==NULL) b_tm = SP_TagManager(new TagManager());
+  if(b_tm==NULL) b_tm = Origen::SP_TagManager(new Origen::TagManager());
   b_tm->setIdTag(idname,idvalue);
 }
 
@@ -77,9 +82,9 @@ void cyclus2origen::set_materials_with_masses(std::vector<int> &ids, const std::
   Check(ids.size()>0);
   Check(ids.size()==masses.size());
   std::vector<double> concs;
-  ConcentrationConverter cv;
+  Origen::ConcentrationConverter cv;
   for(size_t i = 0; i < ids.size(); i++){
-    concs.push_back(cv.convert_to(ConcentrationUnit::CM_2_BARN,ids[i],ConcentrationUnit::KILOGRAMS,masses[i],b_vol));
+    concs.push_back(cv.convert_to(Origen::ConcentrationUnit::CM_2_BARN,ids[i],Origen::ConcentrationUnit::KILOGRAMS,masses[i],b_vol));
   }
   this->set_materials(ids,concs);
 }
@@ -102,11 +107,11 @@ void cyclus2origen::set_materials(std::vector<int> &ids, const std::vector<doubl
 }
 
 void cyclus2origen::set_mat_units(const std::string mat_units){
-  b_concs_units = convertStringToConcUnit(mat_units);
+  b_concs_units = Origen::convertStringToConcUnit(mat_units);
 }
 
 void cyclus2origen::set_time_units(const char* time_units){
-  b_time_units=Time::units(time_units);
+  b_time_units=Origen::Time::units(time_units);
 }
 
 void cyclus2origen::set_flux(const std::vector<double> &fluxes){
@@ -120,7 +125,7 @@ void cyclus2origen::set_powers(const std::vector<double> &powers){
 }
 
 void cyclus2origen::add_parameter(const std::string name, const double value){
-  if(b_tm==NULL) b_tm = SP_TagManager(new TagManager());
+  if(b_tm==NULL) b_tm = Origen::SP_TagManager(new Origen::TagManager());
   b_tm->setInterpTag(name,value);
 }
 
@@ -182,8 +187,8 @@ void cyclus2origen::interpolate(){
     }
     closedir(dr);
   }
-  std::vector<SP_TagManager> tms = Origen::collectLibraries(b_lib_names);
-  std::vector<TagManager> tagman;
+  std::vector<Origen::SP_TagManager> tms = Origen::collectLibraries(b_lib_names);
+  std::vector<Origen::TagManager> tagman;
   for(auto& tm : tms) tagman.push_back(*tm);
   tagman = Origen::selectLibraries(tagman,*b_tm);
   b_lib = Origen::interpLibraryND(tagman,*b_tm);
@@ -194,10 +199,10 @@ void cyclus2origen::solve(){
   Check(b_mat!=NULL);
   Check(b_powers.size()!=0||b_fluxes.size()!=0);
   Check(b_powers.size()==(b_times.size()-1)||b_fluxes.size()==(b_times.size()-1));
-  SP_Solver solver;
+  Origen::SP_Solver solver;
   ScaleUtils::IO::DB db;
   db.set<std::string>("solver","cram");
-  solver = SolverSelector::get_solver(db);
+  solver = Origen::SolverSelector::get_solver(db);
   b_mat->set_solver(solver);
   prob_spec_lib(b_lib,b_times,b_fluxes,b_powers);
   size_t num_steps = b_powers.size()>b_fluxes.size() ? b_powers.size() : b_fluxes.size();
@@ -221,10 +226,10 @@ void cyclus2origen::solve(std::vector<double>& times, std::vector<double>& fluxe
   Check(b_mat!=NULL);
   Check(fluxes.size()>0||powers.size()>0);
   Check(fluxes.size()==(times.size()-1)||powers.size()==(times.size()-1));
-  SP_Solver solver;
+  Origen::SP_Solver solver;
   ScaleUtils::IO::DB db;
   db.set<std::string>("solver","cram");
-  solver = SolverSelector::get_solver(db);
+  solver = Origen::SolverSelector::get_solver(db);
   b_mat->set_solver(solver);
   prob_spec_lib(b_lib,times,fluxes,powers);
   size_t num_steps = powers.size()>fluxes.size() ? powers.size() : fluxes.size();
@@ -280,11 +285,11 @@ void cyclus2origen::get_masses(std::vector<std::vector<double> > &masses_out) co
   std::vector<int> ids;
   this->get_ids(ids);
   Check(ids.size()==concs[0].size());
-  ConcentrationConverter cv;
+  Origen::ConcentrationConverter cv;
   for(size_t i = 0; i < concs.size(); i++){
     std::vector<double> tmp;
     for(size_t j = 0; j < concs[0].size(); j++){
-      tmp.push_back(cv.convert_to(ConcentrationUnit::KILOGRAMS,ids[i],ConcentrationUnit::CM_2_BARN,concs[i][j],b_vol));
+      tmp.push_back(cv.convert_to(Origen::ConcentrationUnit::KILOGRAMS,ids[i],Origen::ConcentrationUnit::CM_2_BARN,concs[i][j],b_vol));
     }
     masses_out.push_back(tmp);
   }
@@ -296,9 +301,9 @@ void cyclus2origen::get_masses_at(int p, std::vector<double> &masses_out) const{
   this->get_concentrations_at(p,concs);
   std::vector<int> ids;
   this->get_ids(ids);
-  ConcentrationConverter cv;
+  Origen::ConcentrationConverter cv;
   for(size_t i = 0; i < concs.size(); i++){
-    masses_out.push_back(cv.convert_to(ConcentrationUnit::KILOGRAMS,ids[i],ConcentrationUnit::CM_2_BARN,concs[i],b_vol));
+    masses_out.push_back(cv.convert_to(Origen::ConcentrationUnit::KILOGRAMS,ids[i],Origen::ConcentrationUnit::CM_2_BARN,concs[i],b_vol));
   }
 }
 
@@ -308,9 +313,9 @@ void cyclus2origen::get_masses_final(std::vector<double> &masses_out) const{
   this->get_concentrations_final(concs);
   std::vector<int> ids;
   this->get_ids(ids);
-  ConcentrationConverter cv;
+  Origen::ConcentrationConverter cv;
   for(size_t i = 0; i < concs.size(); i++){
-    masses_out.push_back(cv.convert_to(ConcentrationUnit::KILOGRAMS,ids[i],ConcentrationUnit::CM_2_BARN,concs[i],b_vol));
+    masses_out.push_back(cv.convert_to(Origen::ConcentrationUnit::KILOGRAMS,ids[i],Origen::ConcentrationUnit::CM_2_BARN,concs[i],b_vol));
   }
 }
 
@@ -324,9 +329,9 @@ void cyclus2origen::get_ids_zzzaaai(std::vector<int> &ids_out) const{
   }
 }
 
-void cyclus2origen::prob_spec_lib(SP_Library lib,std::vector<double> &times,std::vector<double> &fluxes,std::vector<double> &powers){
-  if(b_time_units!=Time::DAYS){
-    for(auto& time : times) time /= Time::factor(b_time_units,Time::DAYS);
+void cyclus2origen::prob_spec_lib(Origen::SP_Library lib,std::vector<double> &times,std::vector<double> &fluxes,std::vector<double> &powers){
+  if(b_time_units!=Origen::Time::DAYS){
+    for(auto& time : times) time /= Origen::Time::factor(b_time_units,Origen::Time::DAYS);
   }
   if(fluxes.size()>0&&powers.size()==0){
     for(auto& flux : fluxes) powers.push_back(flux*b_mat->power_factor_bos());
