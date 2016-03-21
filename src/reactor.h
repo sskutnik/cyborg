@@ -31,7 +31,9 @@ namespace cyborg {
 /// Place a description of the detailed behavior of the agent. Consider
 /// describing the behavior at the tick and tock as well as the behavior
 /// upon sending and receiving materials and messages.
-class reactor : public cyclus::Facility  {
+//class reactor : public cyclus::Facility  {
+class reactor : public cyclus::Facility,
+    public cyclus::toolkit::CommodityProducer {
  public:
   /// Constructor for reactor Class
   /// @param ctx the cyclus context for access to simulation-wide parameters

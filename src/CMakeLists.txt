@@ -22,7 +22,7 @@ SET_TARGET_PROPERTIES(OrigenInterface
     CXX_STANDARD 11
     CXX_STANDARD_REQUIRED ON
     )
-TARGET_LINK_LIBRARIES(OrigenInterface ${LIBS})
+TARGET_LINK_LIBRARIES(OrigenInterface ${LIBS} ${SCALE_LIBRARIES})
 
 INSTALL(
     TARGETS OrigenInterface
@@ -31,11 +31,13 @@ INSTALL(
     )
 
 
-SET(LIBS ${LIBS} OrigenInterface PARENT_SCOPE)
+SET(LIBS ${LIBS} ${OrigenInterface} PARENT_SCOPE)
 
 #################################################################
 
 ### DO NOT DELETE THIS COMMENT: INSERT_ARCHETYPES_HERE ###
+
+SET(CYCLUS_CUSTOM_HEADERS "cyclus_origen_interface.h" "orglib_default_location.h")
 USE_CYCLUS("cyborg" "reactor")
 
 INSTALL_CYCLUS_MODULE("cyborg" "" "NONE")
@@ -45,4 +47,4 @@ SET(TestSource ${cyborg_TEST_CC} PARENT_SCOPE)
 # install header files
 FILE(GLOB h_files "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
 INSTALL(FILES ${h_files} DESTINATION include/cyborg COMPONENT cyborg)
-
+MESSAGE("cyborg h_files = ${h_files}")

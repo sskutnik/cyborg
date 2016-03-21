@@ -20,7 +20,7 @@ PROJECT(cyborg)
 
 STRING(TOLOWER "${CMAKE_BUILD_TYPE}" BUILD_TYPE)
 IF(NOT BUILD_TYPE STREQUAL "release")
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -U_FORTIFY_SOURCE -fno-stack-protector")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -U_FORTIFY_SOURCE -fno-stack-protector -g -O0")
 ENDIF()
 
 # suppress warnings regarding deprecated #_BSD_SOURCE and #_SVID_SOURCE 
@@ -28,6 +28,16 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_DEFAULT_SOURCE")
 
 # no overflow warnings because of silly coin-ness
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-overflow")
+
+# Turn off PTHREAD (due to Nemesis dependency)
+#add_definitions(-DGTEST_HAS_PTHREAD=0)
+# for now always turn off pthreads
+#SET (GTEST_HAS_PTHREAD OFF CACHE BOOL "Set GTEST pthreads")
+
+    FIND_PACKAGE(Threads)
+    IF(CMAKE_USE_PTHREADS_INIT)  # The pthreads library is available.
+        SET(cxx_base_flags "${cxx_base_flags} -DGTEST_HAS_PTHREAD=1")
+    ENDIF()
 
 # ORIGEN requires C++11
 SET(CMAKE_CXX_STANDARD 11)
@@ -142,9 +152,9 @@ include(${QT_USE_FILE})
 SET(STUB_INCLUDE_DIRS ${STUB_INCLUDE_DIRS} ${QT_INCLUDE_DIR} )
 
 # find SCALE libraries (for ORIGEN)
+# Link ONLY as necessary (i.e., OrigenInterface) to avoid gtest conflict via Nemesis
 FIND_PACKAGE(SCALE REQUIRED)
 SET(STUB_INCLUDE_DIRS ${STUB_INCLUDE_DIRS} ${SCALE_INCLUDE_DIRS})
-set(LIBS ${LIBS} ${SCALE_LIBRARIES})
 
 # include all the directories we just found
 INCLUDE_DIRECTORIES(${STUB_INCLUDE_DIRS})
@@ -168,7 +178,11 @@ ADD_EXECUTABLE(cyborg_unit_tests
     )
 
 TARGET_LINK_LIBRARIES(cyborg_unit_tests
-    dl ${LIBS} ${CYCLUS_TEST_LIBRARIES})
+    ${LIBS} ${CYCLUS_TEST_LIBRARIES})
+MESSAGE("***** cyborg_unit_tests LIBS = ${LIBS} ${CYCLUS_TEST_LIBRARIES}")
+
+#set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
+#set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc")
 
 INSTALL(TARGETS cyborg_unit_tests
     RUNTIME DESTINATION bin

@@ -21,12 +21,12 @@ void reactorTest::InitParameters(){
   in_r1 = "in_r1";
   in_c1 = "in_c1";
   out_c1 = "out_c1";
-  power_cap = 100;
-  fuel_capacity = 20;
+  power_cap = 100.0;
+  fuel_capacity = 20.0;
   cycle_length = 1;
   cap_factor = 0.9;
   reactor_lifetime = 10;
-  enrichment = 4;
+  enrichment = 4.0;
 
   cyclus::CompMap v;
   v[922350000] = 0.04;
