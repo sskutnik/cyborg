@@ -46,6 +46,8 @@
  *             of previous solve to solve for second cycle.
  */
 
+namespace OrigenInterface {
+
 class cyclus2origen {
 
 public:
@@ -209,7 +211,7 @@ public:
      ** \param - String for interp_tag name on TagManager.
      ** \param - Double for interp_tag value on TagManager.
      */
-    void add_parameter(const std::string, const double);
+    void add_parameter(const std::string&, const double);
 
     /*!
      ** \brief - Method for adding parameters all at once
@@ -375,3 +377,5 @@ protected:
     Origen::Time::UNITS b_time_units; // Default is seconds. Also accepts minutes,hours,days, and years.
     Origen::Power::UNITS b_power_units; // Default is watts.
 };
+} // end namspace
+

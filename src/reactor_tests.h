@@ -2,12 +2,9 @@
 #define REACTOR_TESTS_H_
 
 #include <gtest/gtest.h>
-
 #include "reactor.h"
-
 #include "context.h"
-#include "facility_tests.h"
-#include "agent_tests.h"
+#include "test_context.h"
 
 namespace reactor {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

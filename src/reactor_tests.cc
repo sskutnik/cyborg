@@ -1,6 +1,6 @@
-#include <gtest/gtest.h>
-
 #include "reactor_tests.h"  
+#include "facility_tests.h"
+#include "agent_tests.h"
 
 using cyborg::reactor;
 

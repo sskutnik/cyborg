@@ -2,11 +2,13 @@
 #include <string>
 
 #include <gtest/gtest.h>
+//#include "Nemesis/gtest/nemesis_gtest.hh"
 
 #include "env.h"
 #include "logger.h"
 
 int main(int argc, char* argv[]) {
+
   // tell ENV the path between the cwd and the cyclus executable
   std::string path = cyclus::Env::PathBase(argv[0]);
   cyclus::Logger::ReportLevel() = cyclus::LEV_ERROR;

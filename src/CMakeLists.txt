@@ -12,7 +12,7 @@ INCLUDE_DIRECTORIES(
 
 FILE(GLOB ORIGEN_INTERFACE_SRC "${CMAKE_CURRENT_SOURCE_DIR}/*origen*.cpp")
 
-ADD_LIBRARY(OrigenInterface ${ORIGEN_INTERFACE_SRC})
+ADD_LIBRARY(OrigenInterface SHARED ${ORIGEN_INTERFACE_SRC})
 
 SET_TARGET_PROPERTIES(OrigenInterface
     PROPERTIES
@@ -30,21 +30,28 @@ INSTALL(
     COMPONENT OrigenInterface
     )
 
+#SET(ORIGEN_LIB OrigenInterface PARENT_SCOPE)
+#SET(LIBS_NO_SCALE ${LIBS} PARENT_SCOPE)
+SET(LIBS ${LIBS} OrigenInterface)
 
-SET(LIBS ${LIBS} ${OrigenInterface} PARENT_SCOPE)
 
 #################################################################
 
 ### DO NOT DELETE THIS COMMENT: INSERT_ARCHETYPES_HERE ###
 
 SET(CYCLUS_CUSTOM_HEADERS "cyclus_origen_interface.h" "orglib_default_location.h")
+
+# Want to install OrigenInterface *only* for Cyborg archetypes and NOT unit test driver
+
+#SET(LIBS ${LIBS} ${OrigenInterface} PARENT_SCOPE)
+#MESSAGE("Building cyborg: LIBS = ${LIBS}")
 USE_CYCLUS("cyborg" "reactor")
 
 INSTALL_CYCLUS_MODULE("cyborg" "" "NONE")
+SET(CYBORG_LIB ${cyborg_LIB} PARENT_SCOPE)
 
 SET(TestSource ${cyborg_TEST_CC} PARENT_SCOPE)
 
 # install header files
 FILE(GLOB h_files "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
 INSTALL(FILES ${h_files} DESTINATION include/cyborg COMPONENT cyborg)
-MESSAGE("cyborg h_files = ${h_files}")

@@ -4,7 +4,6 @@
 #include <string>
 
 #include "cyclus.h"
-#include "cyclus_origen_interface.h"
 
 namespace cyborg {
 
@@ -78,23 +77,23 @@ class reactor : public cyclus::Facility,
   #pragma cyclus var {"tooltip":"Input fuel commodity",\
                       "doc":"Fuel name accepted by this reactor",\
                       "uitype":"incommodity","uilabel":"Fuel Commodity"}
-  std::string fresh_fuel;
+  std::string fresh_fuel = "";
   // Add multiple fuel options later
 
   #pragma cyclus var {"tooltip":"Input fuel recipe",\
                       "doc":"Fuel recipe accepted by reactor",\
                       "uitype":"recipe","uilabel":"Fuel Recipe"}
-  std::string fuel_recipe;                      
+  std::string fuel_recipe = "";                      
 
   #pragma cyclus var {"tooltip":"Spent fuel commodity",\
                       "doc":"Name of spent fuel commodity",\
                       "uitype":"outcommodity","uilabel":"Spent Fuel Commodity"}
-  std::string spent_fuel;
+  std::string spent_fuel = "";
 
   #pragma cyclus var {"tooltip":"Reactor power name",\
                       "doc":"Name of commodity reactor produces",\
                       "uilabel":"Power Name"}
-  std::string power_name;
+  std::string power_name = "";
 
   #pragma cyclus var {"tooltip":"Thermal Power capacity",\
                       "doc":"Reactor thermal power capacity (MW)",\
@@ -128,7 +127,7 @@ class reactor : public cyclus::Facility,
   #pragma cyclus var {"tooltip":"Path to ORIGEN Libraries",\
                       "doc":"Path to ORIGEN Libraries",\
                       "uilabel":"Path to ORIGEN Libraries"}
-  std::string lib_path;
+  std::string lib_path = "";
   
   #pragma cyclus var {"tooltip":"Fresh fuel enrichment",\
                       "doc":"Fresh fuel enrichment",\
@@ -145,7 +144,7 @@ class reactor : public cyclus::Facility,
                       "categorical":['ce_facility14x14', 'ce16x16', 'w14x14', 's14x14', 'w15x15', \
                       'w17x17', 'w17x17_ofa', 'ge7x7-0', 'ge8x8-4', 'abb8x8-1', 'ge9x9-7', 'ge10x10-8', \
                       'atrium9-9', 'atrium10-9', 'svea64-1', 'svea100-0']} 
-  std::string assembly_type;
+  std::string assembly_type = "";
 
   #pragma cyclus var {"tooltip":"Moderator Density",\
                       "doc":"Reactor moderator density, default 0",\
