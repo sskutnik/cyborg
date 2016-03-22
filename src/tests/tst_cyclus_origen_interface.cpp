@@ -117,7 +117,7 @@ int main(int argc, char ** argv)
 
   std::cout << "Expect warning about undefined interp value:" << std::endl;
   tester.interpolate();
-
+  std::cout << "Passed interpolate()." << std::endl;
 // Setting the volume of the material in the problem.
 
 //  tester.set_volume(3);

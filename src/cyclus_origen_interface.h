@@ -1,6 +1,7 @@
 #include <string>
 #include <vector>
 #include <dirent.h>
+#include <sys/stat.h>
 #include "Origen/Core/Definitions.h"
 #include "Origen/Core/dc/ConcentrationUnit.h"
 #include "Origen/Core/dc/Library.h"

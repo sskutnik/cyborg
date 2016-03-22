@@ -173,26 +173,38 @@ void cyclus2origen::get_parameters(std::vector<std::string> &names, std::vector<
 //}
 
 void cyclus2origen::interpolate(){
- //Check(b_tm!=NULL);
- //Check(b_tm->listIdTags().size()!=0);
- //Check(b_lib_names.size()!=0 || b_lib_path.size()!=0);
-  struct dirent *drnt;
+  std::cout << "Passed checks in interpolate()." << std::endl;
   if(b_lib_names.size()==0){
     // figure out how to grab filenames from a directory.
+    struct dirent *drnt;
     auto dr = opendir(b_lib_path.c_str());
+    std::string midstring = "";
+    if(&(b_lib_path.back()) != "/") midstring = "/";
     while(true){
       drnt=readdir(dr);
       if(!drnt) break;
-      if(drnt->d_name=="." || drnt->d_name=="..") continue;
       std::string lib_name (drnt->d_name);
+      std::cout << "Collecting library " << drnt->d_name << " = " << lib_name << "  ." << std::endl;
+      if(lib_name=="." || lib_name=="..") continue;
+      lib_name = b_lib_path + midstring + lib_name;
+      std::cout << "Collected " << lib_name << "." << std::endl;
+      struct stat buffer;
+      if(stat(lib_name.c_str(), &buffer) != 0) std::cout << lib_name << " doesn't exist!" << std::endl;
       b_lib_names.push_back(lib_name);
     }
     closedir(dr);
   }
+
+  std::cout << "Finished collecting the library names.  Collecting TagManagers." << std::endl;
+  std::cout << std::endl << std::endl << std::endl;
+//  for(lib : b_lib_names) std::cout << " Loaded " << lib << "." << std::endl;
   std::vector<Origen::SP_TagManager> tms = Origen::collectLibraries(b_lib_names);
+  std::cout << "Collected libraries.  Moving on." << std::endl;
   std::vector<Origen::TagManager> tagman;
   for(auto& tm : tms) tagman.push_back(*tm);
+  std::cout << "Tag Managers collected.  Selecting those we want." << std::endl;
   tagman = Origen::selectLibraries(tagman,*b_tm);
+  std::cout << "Interpolating over the collected libraries." << std::endl;
   b_lib = Origen::interpLibraryND(tagman,*b_tm);
   b_interp_name = (b_lib->scp_tag_manager())->getIdTag("Filename");
 }
