@@ -6,7 +6,6 @@
 #include "cyclus_origen_interface.h"
 
 int main(int argc, char ** argv){
-/*
   OrigenInterface::cyclus2origen tester;
 // Library names should be specified as string literals.  Names can
 // be given as absolute or relative pathnames if the library is not
@@ -118,7 +117,7 @@ int main(int argc, char ** argv){
 
   std::cout << "Expect warning about undefined interp value:" << std::endl;
   tester.interpolate();
-  std::cout << "Passed interpolate()." << std::endl;
+
 // Setting the volume of the material in the problem.
 
 //  tester.set_volume(3);
@@ -201,6 +200,6 @@ int main(int argc, char ** argv){
   std::vector<int> id_out;
   tester.get_ids(id_out);
   std::cout << "ID vector has size: " << id_out.size() << "." << std::endl;
-*/
+
   return 0;
 }
