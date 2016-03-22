@@ -34,27 +34,31 @@ void reactor::Tick() {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void reactor::Tock() {
-	// Only continue to operate if not exceeding reactor lifetime
-	if (!decom) {
-		// Load Fuel
-		Load_();
-		// Transmute & Discharge if necessary
-		if (reactor_time % cycle_length == 0 && reactor_time != reactor_lifetime) {
-			Discharge_(3.0);
-		}
-		else if (reactor_time == reactor_lifetime){
-			Discharge_(1.0);
-			decom = true;
-		}
-		++reactor_time;
-	}
+    // Only continue to operate if not exceeding reactor lifetime
+    if (!decom) {
+        // Load Fuel
+        Load_();
+
+        // Transmute & Discharge if necessary
+        if (reactor_time % cycle_length == 0 && reactor_time != reactor_lifetime) {
+            Discharge_(3.0);
+        }
+        else if (reactor_time == reactor_lifetime){
+            Discharge_(1.0);
+            decom = true;
+        }
+
+        ++reactor_time;
+    }
 }
 
 void reactor::Load_() {
-	if (fuel.space() > 0){
-		// Push material to fuel buffer from fresh inventory
-		fuel.Push(fresh_inventory.Pop(fresh_inventory.quantity()));
-	}
+    if (fuel.space() > 0){
+        // Push material to fuel buffer from fresh inventory
+        //fuel.Push(fresh_inventory.Pop(fresh_inventory.quantity()));
+        double toLoad = std::min(fuel.space(),fresh_inventory.quantity());
+        fuel.Push(fresh_inventory.Pop( toLoad ));
+    }
 }
 
 void reactor::Discharge_(double core_fraction) {
