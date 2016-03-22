@@ -1,6 +1,6 @@
 # TODO: GTest-ify this test & add a gtest dependency
 
-include_directories( ${CMAKE_CURRENT_SOURCE_DIR} "${PROJECT_SOURCE_DIR}/src")
+include_directories( ${CMAKE_CURRENT_SOURCE_DIR} "${PROJECT_SOURCE_DIR}/src" ${SCALE_INCLUDE_DIRS})
 
 add_executable(tstCyclusOrigenInterface tst_cyclus_origen_interface.cpp )
 SET_TARGET_PROPERTIES( tstCyclusOrigenInterface

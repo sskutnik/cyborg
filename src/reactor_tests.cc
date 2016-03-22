@@ -1,6 +1,6 @@
-#include <gtest/gtest.h>
-
 #include "reactor_tests.h"  
+#include "facility_tests.h"
+#include "agent_tests.h"
 
 using cyborg::reactor;
 
@@ -21,12 +21,12 @@ void reactorTest::InitParameters(){
   in_r1 = "in_r1";
   in_c1 = "in_c1";
   out_c1 = "out_c1";
-  power_cap = 100;
-  fuel_capacity = 20;
+  power_cap = 100.0;
+  fuel_capacity = 20.0;
   cycle_length = 1;
   cap_factor = 0.9;
   reactor_lifetime = 10;
-  enrichment = 4;
+  enrichment = 4.0;
 
   cyclus::CompMap v;
   v[922350000] = 0.04;
@@ -47,7 +47,7 @@ void reactorTest::SetUpReactor(){
   src_facility_->enrichment = enrichment;
 }
 
-void reactorTest::TestInitState(Storage* fac){
+void reactorTest::TestInitState(cyborg::reactor* fac){
   EXPECT_EQ(in_r1, fac->fuel_recipe);
   EXPECT_EQ(in_c1, fac->fresh_fuel);
   EXPECT_EQ(out_c1, fac->spent_fuel);

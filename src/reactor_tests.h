@@ -2,12 +2,9 @@
 #define REACTOR_TESTS_H_
 
 #include <gtest/gtest.h>
-
 #include "reactor.h"
-
 #include "context.h"
-#include "facility_tests.h"
-#include "agent_tests.h"
+#include "test_context.h"
 
 namespace reactor {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -19,8 +16,8 @@ class reactorTest : public ::testing::Test {
   virtual void SetUp();
   virtual void TearDown();
   void InitParameters();
-  void SetUpStorage();
-  void TestInitState(storage::Storage* fac);
+  void SetUpReactor();
+  void TestInitState(cyborg::reactor* fac);
 
   std::string in_r1, in_c1, out_c1;
   double power_cap, fuel_capacity, cap_factor, enrichment;
