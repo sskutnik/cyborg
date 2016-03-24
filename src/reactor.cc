@@ -54,7 +54,9 @@ void reactor::Tock() {
 void reactor::Load_() {
     if (fuel.space() > 0){
         // Push material to fuel buffer from fresh inventory
-        fuel.Push(fresh_inventory.Pop(fresh_inventory.quantity()));
+        //fuel.Push(fresh_inventory.Pop(fresh_inventory.quantity()));
+        double toLoad = std::min(fuel.space(),fresh_inventory.quantity());
+        fuel.Push(fresh_inventory.Pop( toLoad ));
     }
 }
 

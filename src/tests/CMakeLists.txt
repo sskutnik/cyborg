@@ -10,5 +10,5 @@ SET_TARGET_PROPERTIES( tstCyclusOrigenInterface
     CXX_STANDARD 11
     CXX_STANDARD_REQUIRED ON
     )
-TARGET_LINK_LIBRARIES( tstCyclusOrigenInterface OrigenInterface ${LIBS} )
+TARGET_LINK_LIBRARIES( tstCyclusOrigenInterface OrigenInterface ${LIBS} ${CYCLUS_TEST_LIBRARIES})
 MESSAGE("TARGETING ${LIBS}")

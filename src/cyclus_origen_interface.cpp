@@ -186,7 +186,7 @@ void cyclus2origen::interpolate(){
       drnt=readdir(dr);
       if(!drnt) break;
       std::string lib_name (drnt->d_name);
-      if(lib_name=="." || lib_name==".." || lib_name=="arp2obl.py" || lib_name=="arpdata.txt") continue;
+      if(lib_name=="." || lib_name=="..") continue;
       lib_name = b_lib_path + midstring + lib_name;
       struct stat buffer;
       if(stat(lib_name.c_str(), &buffer) != 0){

@@ -45,6 +45,13 @@ void reactorTest::SetUpReactor(){
   src_facility_->cap_factor = cap_factor;
   src_facility_->reactor_lifetime = reactor_lifetime;
   src_facility_->enrichment = enrichment;
+
+  src_facility_->fuel.capacity(src_facility_->fuel_capacity*1000);
+   
+  // Create an input material buffer of fresh fuel (100 MTU)
+  cyclus::Composition::Ptr rec = tc_.get()->GetRecipe(in_r1);
+  cyclus::Material::Ptr recmat = cyclus::Material::CreateUntracked(src_facility_->fuel.space(), rec);
+  src_facility_->fresh_inventory.Push(recmat); 
 }
 
 void reactorTest::TestInitState(cyborg::reactor* fac){
@@ -77,8 +84,11 @@ TEST_F(reactorTest, Tick) {
   // Test reactor specific behaviors of the Tick function here
 }
 
+//\TODO Add a TickDecom test
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 TEST_F(reactorTest, Tock) {
+  src_facility_->fuel.capacity(src_facility_->fuel_capacity*1000);
   EXPECT_NO_THROW(src_facility_->Tock());
   // Test reactor specific behaviors of the Tock function here
 }

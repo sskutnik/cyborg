@@ -3,8 +3,53 @@
  *  \author - Nicholas C. Sly
  */
 
-#include "cyclus_origen_interface.h"
+#include <algorithm>
+#include <iostream>
+#include <vector>
+#include <string>
 
+#include <gtest/gtest.h>
+
+#include "cyclus_origen_interface.h"
+#include "error.h"
+
+using namespace OrigenInterface;
+
+class myError : public cyclus::Error{
+  public:
+    myError(std::string msg) : Error(msg) {}
+};
+
+class OrigenInterfaceTester : public ::testing::Test {
+protected:
+
+//  void SetUp()
+//  {
+//// define setup that requires initial values with 'new' calls here
+//  }
+
+// define variables that don't require new calls here.
+  cyclus2origen tester;
+};
+
+TEST_F(OrigenInterfaceTester,libManipulation)
+{
+  std::vector<std::string> lib_names;
+  lib_names.push_back("ce14_e20.arplib");
+  lib_names.push_back("ce14_e30.arplib");
+  lib_names.push_back("ce14_e40.arplib");
+  tester.set_lib_names(lib_names);
+
+  std::vector<std::string> get_names;
+  tester.get_lib_names(get_names);
+  if(get_names!=lib_names){
+    myError except=myError("Libraries not emplaced onto interface object properly.");
+    except.what();
+  }
+}
+
+//TEST_F(OrigenInterfaceTester,
+/*
 int main(int argc, char ** argv){
   OrigenInterface::cyclus2origen tester;
 // Library names should be specified as string literals.  Names can
@@ -203,3 +248,4 @@ int main(int argc, char ** argv){
 
   return 0;
 }
+*/
