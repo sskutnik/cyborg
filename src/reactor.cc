@@ -54,7 +54,9 @@ void reactor::Tock() {
 void reactor::Load_() {
     if (fuel.space() > 0){
         // Push material to fuel buffer from fresh inventory
-        fuel.Push(fresh_inventory.Pop(fresh_inventory.quantity()));
+        //fuel.Push(fresh_inventory.Pop(fresh_inventory.quantity()));
+        double toLoad = std::min(fuel.space(),fresh_inventory.quantity());
+        fuel.Push(fresh_inventory.Pop( toLoad ));
     }
 }
 
@@ -79,11 +81,7 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat) {
     // Set ID tags 
     react.set_id_tag("Assembly Type",assembly_type);
     
-    // Set Interpolable parameters
-    std::cerr << "*****************************************" << std::endl
-              << "Enrichment = " << this->enrichment 
-              << "*****************************************" << std::endl;
-
+    // Set Interpolable parameters    
     react.add_parameter("Enrichment",enrichment);
     
     // Create cross-section library
