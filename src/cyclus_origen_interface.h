@@ -1,6 +1,7 @@
 #include <string>
 #include <vector>
 #include <dirent.h>
+#include <sys/stat.h>
 #include "Origen/Core/Definitions.h"
 #include "Origen/Core/dc/ConcentrationUnit.h"
 #include "Origen/Core/dc/Library.h"
@@ -211,7 +212,7 @@ public:
      ** \param - String for interp_tag name on TagManager.
      ** \param - Double for interp_tag value on TagManager.
      */
-    void add_parameter(const std::string&, const double);
+    void add_parameter(const std::string, const double);
 
     /*!
      ** \brief - Method for adding parameters all at once

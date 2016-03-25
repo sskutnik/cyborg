@@ -91,7 +91,6 @@ IF(NOT CYCLUS_DOC_ONLY)
     SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_ROOT}/share/Modules")
     SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CYBORG_SOURCE_DIR}/cmake)
     SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CYCLUS_CORE_SHARE_DIR}/cmake)
-    MESSAGE("CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}")
 
     # Find cyclus
     FIND_PACKAGE(Cyclus REQUIRED)
@@ -180,33 +179,17 @@ IF(NOT CYCLUS_DOC_ONLY)
         INCLUDE(CTest)
     ENDIF()
 
-    ADD_SUBDIRECTORY(src/tests)
-    ADD_TEST( NAME tstOrigenInterface COMMAND tstCyclusOrigenInterface )
-
     SET(TestSource
         ${TestSource}
-        ${CYBORG_TEST_CORE} )
+        ${CYCLUS_TEST_CORE} )
+    LIST(REMOVE_DUPLICATES TestSource)
 
-    FIND_PACKAGE(Threads)
-    IF(CMAKE_USE_PTHREADS_INIT)  # The pthreads library is available.
-        SET(cxx_base_flags "${cxx_base_flags} -DGTEST_HAS_PTHREAD=1")
-    ENDIF()
-
-    # Build cyborg_unit_tests
-    ADD_EXECUTABLE(cyborg_unit_tests
-        src/tests/cyborg_unit_test_driver.cc
-        ${TestSource}
-    )
-
-    TARGET_LINK_LIBRARIES(cyborg_unit_tests
-        dl ${LIBS} ${CYBORG_LIB} ${CYCLUS_TEST_LIBRARIES} )
-    #    ${LIBS} ${CYCLUS_TEST_LIBRARIES} )
-
-    INSTALL(TARGETS cyborg_unit_tests
-        RUNTIME DESTINATION bin
-        COMPONENT testing
-    )
     SET(ROOT_DIR ${CYCLUS_ROOT_DIR})
+
+    ADD_SUBDIRECTORY(tests)
+    #ADD_TEST( NAME tstOrigenInterface COMMAND tstCyclusOrigenInterface )
+    ADD_TEST( NAME testCyborg COMMAND cyborg_unit_tests )
+
     SET(PROJ_DIR ${PROJECT_BINARY_DIR})
     SET(CORE_SHARE_DIR ${CYCLUS_CORE_SHARE_DIR})
 
