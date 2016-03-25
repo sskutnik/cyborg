@@ -18,6 +18,20 @@ using namespace OrigenInterface;
 class OrigenInterfaceTester : public ::testing::Test {
 protected:
 
+  OrigenInterfaceTester(){
+
+    lib_names.push_back("ce14_e20.arplib");
+    lib_names.push_back("ce14_e30.arplib");
+
+    id_tags["Assembly Type"] = "ge7x7-0";
+    id_tags["Fuel Type"] = "Uranium";
+    id_tags["Something"] = "Else";
+
+    params["Enrichment"] = 4.5;
+    params["Moderator Density"] = 0.45;
+    params["Fuel Temperature"] = 9000;
+  }
+
   void SetUp()
   {
 // assign initial values to variables declared below.
@@ -28,14 +42,14 @@ protected:
 // destroy objects created by SetUp.
   }
 // define variables that don't require new calls here.
+  std::vector<std::string> lib_names;
+  std::map<std::string,std::string> id_tags;
+  std::map<std::string,double> params;
   cyclus2origen tester;
 };
 
 TEST_F(OrigenInterfaceTester,libManipulation)
 {
-  std::vector<std::string> lib_names;
-  lib_names.push_back("ce14_e20.arplib");
-  lib_names.push_back("ce14_e30.arplib");
   tester.set_lib_names(lib_names);
 
   std::vector<std::string> get_names;
@@ -59,10 +73,6 @@ TEST_F(OrigenInterfaceTester,libManipulation)
 }
 
 TEST_F(OrigenInterfaceTester,idTagManipulation){
-  std::map<std::string,std::string> id_tags;
-  id_tags["Assembly Type"] = "ge7x7-0";
-  id_tags["Fuel Type"] = "Uranium";
-  id_tags["Something"] = "Else";
 
   tester.set_id_tags(id_tags);
 
@@ -97,10 +107,6 @@ TEST_F(OrigenInterfaceTester,idTagManipulation){
 }
 
 TEST_F(OrigenInterfaceTester,parameterManipulation){
-  std::map<std::string,double> params;
-  params["Enrichment"] = 4.5;
-  params["Moderator Density"] = 0.45;
-  params["Fuel Temperature"] = 9000;
 
   tester.set_parameters(params);
 
@@ -135,12 +141,29 @@ TEST_F(OrigenInterfaceTester,parameterManipulation){
   }
 }
 
+TEST_F(OrigenInterfaceTester,interpolationTest){
+  // Tests for failure, not correctness.
+  // No methods currently in place to test for correctness.
+  EXPECT_TRUE(TRUE);
+  tester.remove_lib_names(lib_names);
+  tester.set_lib_path("/home/nsly/scale_dev_data/arplibs");
+
+  id_tags.erase("Something");
+  tester.set_id_tags(id_tags);
+
+  params.erase("Moderator Density");
+  params.erase("Fuel Temperature");
+  tester.set_parameters(params);
+
+  std::cout << "Expect next line to be warning about unspecified tag 'Moderator Density'." << std::endl;
+  tester.interpolate();
+}
+/*
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
 
-/*
 int main(int argc, char ** argv){
   OrigenInterface::cyclus2origen tester;
 // Library names should be specified as string literals.  Names can
