@@ -15,41 +15,155 @@
 
 using namespace OrigenInterface;
 
-class myError : public cyclus::Error{
-  public:
-    myError(std::string msg) : Error(msg) {}
-};
-
 class OrigenInterfaceTester : public ::testing::Test {
 protected:
 
-//  void SetUp()
-//  {
-//// define setup that requires initial values with 'new' calls here
-//  }
+  OrigenInterfaceTester(){
 
+    lib_names.push_back("ce14_e20.arplib");
+    lib_names.push_back("ce14_e30.arplib");
+
+    id_tags["Assembly Type"] = "ge7x7-0";
+    id_tags["Fuel Type"] = "Uranium";
+    id_tags["Something"] = "Else";
+
+    params["Enrichment"] = 4.5;
+    params["Moderator Density"] = 0.45;
+    params["Fuel Temperature"] = 9000;
+  }
+
+  void SetUp()
+  {
+// assign initial values to variables declared below.
+  }
+
+  void TearDown()
+  {
+// destroy objects created by SetUp.
+  }
 // define variables that don't require new calls here.
+  std::vector<std::string> lib_names;
+  std::map<std::string,std::string> id_tags;
+  std::map<std::string,double> params;
   cyclus2origen tester;
 };
 
 TEST_F(OrigenInterfaceTester,libManipulation)
 {
-  std::vector<std::string> lib_names;
-  lib_names.push_back("ce14_e20.arplib");
-  lib_names.push_back("ce14_e30.arplib");
-  lib_names.push_back("ce14_e40.arplib");
   tester.set_lib_names(lib_names);
 
   std::vector<std::string> get_names;
   tester.get_lib_names(get_names);
-  if(get_names!=lib_names){
-    myError except=myError("Libraries not emplaced onto interface object properly.");
-    except.what();
+  EXPECT_EQ(get_names,lib_names) << "Setting or getting library names failed.";
+
+  tester.add_lib_names({"ce14_e40.arplib"});
+
+  lib_names.push_back("ce14_e40.arplib");
+
+  get_names.clear();
+  tester.get_lib_names(get_names);
+  EXPECT_EQ(get_names,lib_names) << "Adding a new library name failed.";
+
+  tester.remove_lib_names({"ce14_e40.arplib"});
+  lib_names.pop_back();
+
+  get_names.clear();
+  tester.get_lib_names(get_names);
+  EXPECT_EQ(get_names,lib_names) << "Removing a library name failed.";
+}
+
+TEST_F(OrigenInterfaceTester,idTagManipulation){
+
+  tester.set_id_tags(id_tags);
+
+  std::vector<std::string> names;
+  std::vector<std::string> values;
+
+  tester.get_id_tags(names,values);
+
+  for(size_t i = 0; i < names.size(); i++){
+    EXPECT_EQ(id_tags[names[i]],values[i]) << "ID Tags not properly emplaced on interface object with map.";
+  }
+
+  tester.remove_id_tag("Something");
+  tester.remove_id_tag("Fuel Type");
+
+  names.clear();values.clear();
+
+  tester.get_id_tags(names,values);
+
+  EXPECT_EQ(names.size(),1) << "ID Tag removal failed.";
+  EXPECT_EQ(id_tags[names[0]],values[0]) << "ID Tag removal resulted in an incorrect list of remaining tags.";
+
+  tester.set_id_tag("Fuel Type","Uranium");
+
+  names.clear(); values.clear();
+
+  tester.get_id_tags(names,values);
+  EXPECT_EQ(names.size(),2) << "ID Tag addition failed.";
+  for(size_t i = 0; i < names.size(); i++){
+    EXPECT_EQ(id_tags[names[i]],values[i]) << "ID Tag addition did not result in a correct list of ID Tags.";
   }
 }
 
-//TEST_F(OrigenInterfaceTester,
+TEST_F(OrigenInterfaceTester,parameterManipulation){
+
+  tester.set_parameters(params);
+
+  std::vector<std::string> names;
+  std::vector<double> values;
+
+  tester.get_parameters(names,values);
+  EXPECT_EQ(names.size(),params.size()) << "Parameter setting or getting failed to return the correct number of parameters.";
+  for(size_t i = 0; i < names.size(); i++){
+    EXPECT_EQ(params[names[i]],values[i]) << "Parameter setting and getting did not return the correct set of parameters.";
+  }
+
+  tester.remove_parameter("Fuel Temperature");
+  tester.remove_parameter("Moderator Density");
+  names.clear(); values.clear();
+
+  tester.get_parameters(names,values);
+  EXPECT_EQ(names.size(),(params.size()-2)) << "Parameter removal did not result in the correct number of remaining parameters.";
+
+  for(size_t i = 0; i < names.size(); i++){
+    EXPECT_EQ(params[names[i]],values[i]) << "Parameter removal did not result in a correct set of remaining parameters.";
+  }
+
+  tester.add_parameter("Moderator Density",0.45);
+  names.clear(); values.clear();
+
+  tester.get_parameters(names,values);
+  EXPECT_EQ(names.size(),(params.size()-1)) << "Parameter addition did not result in the correct number of remaining parameters.";
+
+  for(size_t i = 0; i < names.size(); i++){
+    EXPECT_EQ(params[names[i]],values[i]) << "Parameter addition did not result in the correct set of remaining parameters.";
+  }
+}
+
+TEST_F(OrigenInterfaceTester,interpolationTest){
+  // Tests for failure, not correctness.
+  // No methods currently in place to test for correctness.
+  EXPECT_TRUE(TRUE);
+  tester.remove_lib_names(lib_names);
+  tester.set_lib_path("/home/nsly/scale_dev_data/arplibs");
+
+  id_tags.erase("Something");
+  tester.set_id_tags(id_tags);
+
+  params.erase("Moderator Density");
+  params.erase("Fuel Temperature");
+  tester.set_parameters(params);
+
+  std::cout << "Expect next line to be warning about unspecified tag 'Moderator Density'." << std::endl;
+  tester.interpolate();
+}
 /*
+int main(int argc, char **argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
+
 int main(int argc, char ** argv){
   OrigenInterface::cyclus2origen tester;
 // Library names should be specified as string literals.  Names can
