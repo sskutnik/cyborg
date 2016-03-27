@@ -57,6 +57,8 @@ def install(args):
             cmake_cmd += ['-DBOOST_ROOT=' + absexpanduser(args.boost_root)]
         if args.build_type:
             cmake_cmd += ['-DCMAKE_BUILD_TYPE=' + args.build_type]
+        if args.orglib_root:
+            cmake_cmd += ['-DUSER_ORGLIB_DIR='+absexpanduser(args.orglib_root)]
         check_windows_cmake(cmake_cmd)
         rtn = subprocess.check_call(cmake_cmd, cwd=args.build_dir,
                                     shell=(os.name == 'nt'))
@@ -120,6 +122,9 @@ def main():
     boost = "the relative path to the Boost libraries directory"
     parser.add_argument('--boost_root', help=boost)
 
+    orglib = "the path to the tagged ORIGEN reactor data libraries directory"
+    parser.add_argument('--orglib_root', help=orglib)
+ 
     cmake_prefix_path = "the cmake prefix path for use with FIND_PACKAGE, " + \
         "FIND_PATH, FIND_PROGRAM, or FIND_LIBRARY macros"
     parser.add_argument('--cmake_prefix_path', help=cmake_prefix_path)

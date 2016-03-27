@@ -4,6 +4,7 @@
 #include <string>
 
 #include "cyclus.h"
+#include "orglib_default_location.h"
 
 namespace cyborg {
 
@@ -127,7 +128,8 @@ class reactor : public cyclus::Facility,
   #pragma cyclus var {"tooltip":"Path to ORIGEN Libraries",\
                       "doc":"Path to ORIGEN Libraries",\
                       "uilabel":"Path to ORIGEN Libraries"}
-  std::string lib_path = "";
+  // Default set by environment / build argument in orglib_default_location.h
+  std::string lib_path = ORIGEN_LIBS_DEFAULT; 
   
   #pragma cyclus var {"tooltip":"Fresh fuel enrichment",\
                       "doc":"Fresh fuel enrichment",\
