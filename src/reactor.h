@@ -146,7 +146,7 @@ class reactor : public cyclus::Facility,
                       "categorical":['ce_facility14x14', 'ce16x16', 'w14x14', 's14x14', 'w15x15', \
                       'w17x17', 'w17x17_ofa', 'ge7x7-0', 'ge8x8-4', 'abb8x8-1', 'ge9x9-7', 'ge10x10-8', \
                       'atrium9-9', 'atrium10-9', 'svea64-1', 'svea100-0']} 
-  std::string assembly_type = "";
+  std::string assembly_type;
 
   #pragma cyclus var {"tooltip":"Moderator Density",\
                       "doc":"Reactor moderator density, default 0",\

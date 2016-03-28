@@ -1,4 +1,5 @@
 #include "cyclus_origen_interface.h"
+#include "error.h"
 #include "Origen/Core/dc/ConcentrationConverter.h"
 #include "Origen/Core/fn/io.h"
 #include "Origen/Core/fn/interp.h"
@@ -172,10 +173,15 @@ void cyclus2origen::get_parameters(std::vector<std::string> &names, std::vector<
 //  }
 //}
 
-void cyclus2origen::interpolate(){
+void cyclus2origen::interpolate() {
+  
+  using cyclus::ValueError;
+
+  // TODO: Replace these with exceptions (instead of DBC calls)
   Check(b_tm!=NULL);
   Check(b_tm->listIdTags().size()!=0);
   Check(b_lib_names.size()!=0 || b_lib_path.size()!=0);
+
   if(b_lib_names.size()==0){
     // figure out how to grab filenames from a directory.
     struct dirent *drnt;
@@ -197,10 +203,24 @@ void cyclus2origen::interpolate(){
     }
     closedir(dr);
   }
+  // Bail if no libraries specified
+  if(b_lib_names.size() > 0) {
+    std::stringstream ss;
+    ss << "Cyborg::reactor::interpolate: No libraries specified!" << std::endl; 
+    throw ValueError(ss.str());
+  }
 
   std::vector<Origen::SP_TagManager> tms = Origen::collectLibraries(b_lib_names);
   std::vector<Origen::TagManager> tagman;
   for(auto& tm : tms) tagman.push_back(*tm);
+ 
+  // Bail if no libraries found
+  if(b_lib_names.size() > 0) {
+    std::stringstream ss;
+    ss << "Cyborg::reactor::interpolate: No libraries found!" << std::endl; 
+    throw ValueError(ss.str());
+  }
+
   tagman = Origen::selectLibraries(tagman,*b_tm);
   b_lib = Origen::interpLibraryND(tagman,*b_tm);
   b_interp_name = (b_lib->scp_tag_manager())->getIdTag("Filename");

@@ -89,6 +89,10 @@ TEST_F(reactorTest, Tick) {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 TEST_F(reactorTest, Tock) {
   src_facility_->fuel.capacity(src_facility_->fuel_capacity*1000);
+  try{ src_facility_->Tock(); }
+  catch( std::exception& ex) {
+    std::cerr << "Exception thrown: " << ex.what() << std::endl;
+  }
   EXPECT_NO_THROW(src_facility_->Tock());
   // Test reactor specific behaviors of the Tock function here
 }
