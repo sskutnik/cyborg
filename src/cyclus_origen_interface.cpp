@@ -204,9 +204,9 @@ void cyclus2origen::interpolate() {
     closedir(dr);
   }
   // Bail if no libraries specified
-  if(b_lib_names.size() > 0) {
+  if(b_lib_names.size() == 0) {
     std::stringstream ss;
-    ss << "Cyborg::reactor::interpolate: No libraries specified!" << std::endl; 
+    ss << "Cyborg::reactor::interpolate: No libraries specified or found!" << std::endl; 
     throw ValueError(ss.str());
   }
 
@@ -215,13 +215,20 @@ void cyclus2origen::interpolate() {
   for(auto& tm : tms) tagman.push_back(*tm);
  
   // Bail if no libraries found
-  if(b_lib_names.size() > 0) {
+  if(tagman.size() == 0) {
     std::stringstream ss;
-    ss << "Cyborg::reactor::interpolate: No libraries found!" << std::endl; 
+    ss << "Cyborg::reactor::interpolate: No libraries found that have tag managers!" << std::endl; 
     throw ValueError(ss.str());
   }
 
   tagman = Origen::selectLibraries(tagman,*b_tm);
+
+  if(tagman.size() == 0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::interpolate: No libraries found that match specified ID tags!" << std::endl;
+    throw ValueError(ss.str());
+  }
+
   b_lib = Origen::interpLibraryND(tagman,*b_tm);
   b_interp_name = (b_lib->scp_tag_manager())->getIdTag("Filename");
 }
