@@ -17,7 +17,14 @@ void cyclus2origen::set_lib_names(const std::vector<std::string> &lib_names){
 }
 
 void cyclus2origen::set_lib_path(const std::string lib_path){
-  Check(ScaleUtils::IO::directoryExists(lib_path));
+  using cyclus::IOError;
+  auto dr = opendir(lib_path.c_str());
+  if(dr==NULL){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::set_lib_path(" << __LINE__ << ") : Directory provided is not a directory!" << std::endl;
+    throw IOError(ss.str());
+  }
+  closedir(dr);
   b_lib_path=lib_path;
 }
 
@@ -41,7 +48,12 @@ void cyclus2origen::list_lib_names() const{
 }
 
 void cyclus2origen::get_lib_names(std::vector<std::string> &lib_names) const{
-  Check(lib_names.empty());
+  using cyclus::StateError;
+  if(!lib_names.empty()){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::get_lib_names(" << __LINE__ << ") : Return vector for lib_names not empty upon function call!" << std::endl;
+    throw StateError(ss.str());
+  }
   lib_names=b_lib_names;
 }
 
@@ -57,23 +69,54 @@ void cyclus2origen::set_id_tags(const std::map<std::string,std::string> &tags){
 }
 
 void cyclus2origen::remove_id_tag(const std::string idname){
-  Check(b_tm!=NULL);
-  Check(b_tm->hasTag(idname));
+  using cyclus::StateError;
+  if(b_tm==NULL){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::remove_id_tag(" << __LINE__ << ") : No tag manager found on this interface object!" << std::endl;
+    throw StateError(ss.str());
+  }
+  if(!b_tm->hasTag(idname)){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::remove_id_tag(" << __LINE__ << ") : Tag manager does not have a tag with name = " << idname << "!" << std::endl;
+    throw StateError(ss.str());
+  }
   b_tm->deleteTag(idname);
 }
 
 void cyclus2origen::list_id_tags() const{
-  Check(b_tm!=NULL);
-  Check((b_tm->listIdTags()).size()!=0);
+  using cyclus::StateError;
+  if(b_tm==NULL){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::list_id_tags(" << __LINE__ << ") : No tag manager found on this interface object!" << std::endl;
+    throw StateError(ss.str());
+  }
+  if(b_tm->listIdTags().size()==0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::list_id_tags(" << __LINE__ << ") : No ID tags found on this interface object!  Use set_id_tags()." << std::endl;
+    throw StateError(ss.str());
+  }
   for(auto tags : b_tm->listIdTags()){
     std::cout << "Tag name: " << tags << ", value: " << b_tm->getIdTag(tags) << "." << std::endl;
   }
 }
 
 void cyclus2origen::get_id_tags(std::vector<std::string> &names, std::vector<std::string> &values) const{
-  Check(names.empty());
-  Check(values.empty());
-  Check(b_tm!=NULL);
+  using cyclus::StateError;
+  if(b_tm==NULL){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::get_id_tags(" << __LINE__ << ") : No tag manager found on this interface object!" << std::endl;
+    throw StateError(ss.str());
+  }
+  if(!names.empty()){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::get_id_tags(" << __LINE__ << ") : Return vector for ID tag names not emtpy upon function call!" << std::endl;
+    throw StateError(ss.str());
+  }
+  if(!values.empty()){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::get_id_tags(" << __LINE__ << ") : Return vector for ID tag values not empty upon function call!" << std::endl;
+    throw StateError(ss.str());
+  }
   for(auto tag : b_tm->listIdTags()){
     names.push_back(tag);
     values.push_back(b_tm->getIdTag(tag));
@@ -81,9 +124,28 @@ void cyclus2origen::get_id_tags(std::vector<std::string> &names, std::vector<std
 }
 
 void cyclus2origen::set_materials_with_masses(std::vector<int> &ids, const std::vector<double> &masses){
-  Check(b_lib!=NULL);
-  Check(ids.size()>0);
-  Check(ids.size()==masses.size());
+  using cyclus::StateError;
+  using cyclus::ValueError;
+  if(b_lib==NULL){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::set_materials_with_masses(" << __LINE__ << ") : No library found on this interface object! Run interpolate() first." << std::endl;
+    throw StateError(ss.str());
+  }
+  if(ids.size()==0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::set_materials_with_masses(" << __LINE__ << ") : No IDs provided in ID vector!" << std::endl;
+    throw StateError(ss.str());
+  }
+  if(masses.size()==0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::set_materials_with_masses(" << __LINE__ << ") : No masses provided in the masses vector!" << std::endl;
+    throw StateError(ss.str());
+  }
+  if(masses.size()!=ids.size()){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::set_materials_with_masses(" << __LINE__ << ") : Size mismatch between ID and mass vectors!" << std::endl;
+    throw ValueError(ss.str());
+  }
   std::vector<double> concs;
   Origen::ConcentrationConverter cv;
   for(size_t i = 0; i < ids.size(); i++){
@@ -93,16 +155,43 @@ void cyclus2origen::set_materials_with_masses(std::vector<int> &ids, const std::
 }
 
 void cyclus2origen::set_materials(std::vector<int> &ids, const std::vector<double> &concs){
-  Check(b_lib!=NULL);
-  Check(b_vol>0);
-  Check(ids.size()>0);
-  Check(concs.size()==ids.size());
+  using cyclus::StateError;
+  using cyclus::ValueError;
+  if(b_lib==NULL){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::set_materials(" << __LINE__ << ") : No library found on this interface object!  Use interpolate() first." << std::endl;
+    throw StateError(ss.str());
+  }
+  if(b_vol<=0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::set_materials(" << __LINE__ << ") : Volume should be implicitly set...." << std::endl;
+    throw ValueError(ss.str());
+  }
+  if(ids.size()==0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::set_materials(" << __LINE__ << ") : No IDs provided in ID vector!" << std::endl;
+    throw StateError(ss.str());
+  }
+  if(concs.size()==0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::set_materials(" << __LINE__ << ") : No concentrations were provided in the concentrations vector!" << std::endl;
+    throw StateError(ss.str());
+  }
+  if(concs.size()!=ids.size()){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::set_materials(" << __LINE__ << ") : Size mismatch between ID and concentrations vectors!" << std::endl;
+    throw ValueError(ss.str());
+  }
   std::string name = "cyclus_";
   name.append(b_interp_name);
   int id = 1001;
   for(size_t i = 0; i < ids.size(); i++){
     if(ScaleData::Utils::is_valid_zzzaaai(ids[i])) ids[i] = ScaleData::Utils::zzzaaai_to_pizzzaaa(ids[i]);
-    Check(ScaleData::Utils::is_valid_pizzzaaa(ids[i]));
+    if(!ScaleData::Utils::is_valid_pizzzaaa(ids[i])){
+      std::stringstream ss;
+      ss << "Cyborg::reactor::set_materials(" << __LINE__ << ") : Unrecognizeable nuclide ID name! Use zzzaaai or pizzzaaa format." << std::endl;
+      throw ValueError(ss.str());
+    }
   }
   Origen::SP_Material mat(new Origen::Material(b_lib,name,id,b_vol));
   mat->set_numden_bos(concs,ids,b_vol);
@@ -118,12 +207,22 @@ void cyclus2origen::set_time_units(const char* time_units){
 }
 
 void cyclus2origen::set_flux(const std::vector<double> &fluxes){
-  Check(fluxes.size()!=0);
+  using cyclus::StateError;
+  if(fluxes.size()==0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::set_flux(" << __LINE__ << ") : Vector of fluxes provided is empty!" << std::endl;
+    throw StateError(ss.str());
+  }
   b_fluxes = fluxes;
 }
 
 void cyclus2origen::set_powers(const std::vector<double> &powers){
-  Check(powers.size()!=0);
+  using cyclus::StateError;
+  if(powers.size()==0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::set_powers(" << __LINE__ << ") : Vector of powers provided is empty!" << std::endl;
+    throw StateError(ss.str());
+  }
   b_powers = powers;
 }
 
@@ -139,23 +238,55 @@ void cyclus2origen::set_parameters(const std::map<std::string,double> &params){
 }
 
 void cyclus2origen::remove_parameter(const std::string name){
-  Check(b_tm!=NULL);
-  Check(b_tm->hasTag(name));
+  using cyclus::StateError;
+  if(b_tm==NULL){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::remove_parameter(" << __LINE__ << ") : No tag manager found on this interface object!" << std::endl;
+    throw StateError(ss.str());
+  }
+  if(!b_tm->hasTag(name)){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::remove_parameter(" << __LINE__ << ") : No tag with name " << name << " found on this interface object!" << std::endl;
+    throw StateError(ss.str());
+  }
+
   b_tm->deleteTag(name);
 }
 
 void cyclus2origen::list_parameters() const{
-  Check(b_tm!=NULL);
-  Check((b_tm->listInterpTags()).size()!=0);
+  using cyclus::StateError;
+  if(b_tm==NULL){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::list_parameters(" << __LINE__ << ") : No tag manager found on this interface object!" << std::endl;
+    throw StateError(ss.str());
+  }
+  if(b_tm->listInterpTags().size()==0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::list_parameters(" << __LINE__ << ") : No parameters found on this tag manager!" << std::endl;
+    throw StateError(ss.str());
+  }
   for(auto tag : b_tm->listInterpTags()){
     std::cout << "Interp tag name: " << tag << ", value: " << b_tm->getInterpTag(tag) << "." << std::endl;
   }
 }
 
 void cyclus2origen::get_parameters(std::vector<std::string> &names, std::vector<double> &values) const{
-  Check(names.empty());
-  Check(values.empty());
-  Check(b_tm!=NULL);
+  using cyclus::StateError;
+  if(!names.empty()){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::get_parameters(" << __LINE__ << ") : Return vector for names not empty upon function call!" << std::endl;
+    throw StateError(ss.str());
+  }
+  if(!values.empty()){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::get_parameters(" << __LINE__ << ") : Return vector for values not empty upon function call!" << std::endl;
+    throw StateError(ss.str());
+  }
+  if(b_tm==NULL){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::get_parameters(" << __LINE__ << ") : No tag manager present with parameters!" << std::endl;
+    throw StateError(ss.str());
+  }
   for(auto tag : b_tm->listInterpTags()){
     names.push_back(tag);
     values.push_back(b_tm->getInterpTag(tag));
@@ -174,13 +305,23 @@ void cyclus2origen::get_parameters(std::vector<std::string> &names, std::vector<
 //}
 
 void cyclus2origen::interpolate() {
-  
   using cyclus::ValueError;
-
-  // TODO: Replace these with exceptions (instead of DBC calls)
-  Check(b_tm!=NULL);
-  Check(b_tm->listIdTags().size()!=0);
-  Check(b_lib_names.size()!=0 || b_lib_path.size()!=0);
+  using cyclus::StateError;
+  if(b_tm==NULL){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::interpolate(" << __LINE__ << ") : No tag manager found!" << std::endl;
+    throw StateError(ss.str());
+  }
+  if(b_tm->listIdTags().size()==0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::interpolate(" << __LINE__ << ") : No ID tags found!" << std::endl;
+    throw StateError(ss.str());
+  }
+  if(b_lib_names.size()==0 && b_lib_path.size()==0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::interpolate(" << __LINE__ << ") : No library names or path specified!" << std::endl;
+    throw cyclus::ValueError(ss.str());
+  }
 
   if(b_lib_names.size()==0){
     // figure out how to grab filenames from a directory.
@@ -203,21 +344,22 @@ void cyclus2origen::interpolate() {
     }
     closedir(dr);
   }
+
   // Bail if no libraries specified
   if(b_lib_names.size() == 0) {
     std::stringstream ss;
-    ss << "Cyborg::reactor::interpolate: No libraries specified or found!" << std::endl; 
+    ss << "Cyborg::reactor::interpolate(" << __LINE__ << ") : No libraries specified or found!" << std::endl;
     throw ValueError(ss.str());
   }
 
   std::vector<Origen::SP_TagManager> tms = Origen::collectLibraries(b_lib_names);
   std::vector<Origen::TagManager> tagman;
   for(auto& tm : tms) tagman.push_back(*tm);
- 
+
   // Bail if no libraries found
   if(tagman.size() == 0) {
     std::stringstream ss;
-    ss << "Cyborg::reactor::interpolate: No libraries found that have tag managers!" << std::endl; 
+    ss << "Cyborg::reactor::interpolate(" << __LINE__ << ") : No libraries found that have tag managers!" << std::endl;
     throw ValueError(ss.str());
   }
 
@@ -225,7 +367,7 @@ void cyclus2origen::interpolate() {
 
   if(tagman.size() == 0){
     std::stringstream ss;
-    ss << "Cyborg::reactor::interpolate: No libraries found that match specified ID tags!" << std::endl;
+    ss << "Cyborg::reactor::interpolate(" << __LINE__ << ") : No libraries found that match specified ID tags!" << std::endl;
     throw ValueError(ss.str());
   }
 
@@ -234,9 +376,30 @@ void cyclus2origen::interpolate() {
 }
 
 void cyclus2origen::solve(){
-  Check(b_mat!=NULL);
-  Check(b_powers.size()!=0||b_fluxes.size()!=0);
-  Check(b_powers.size()==(b_times.size()-1)||b_fluxes.size()==(b_times.size()-1));
+  using cyclus::StateError;
+  using cyclus::ValueError;
+  if(b_mat==NULL){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::solve(" << __LINE__ << ") : No material object found on this interface object!  Use set_materials() or set_materials_with_masses()." << std::endl;
+    throw StateError(ss.str());
+  }
+  if(b_powers.size()==0 && b_fluxes.size()==0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::solve(" << __LINE__ << ") : No powers or fluxes found on this interface object!  Use set_fluxes or set_powers." << std::endl;
+    throw StateError(ss.str());
+  }
+  if(b_powers.size()!=(b_times.size()-1) && b_powers.size()!=0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::solve(" << __LINE__ << ") : Powers vector must be exactly 1 element shorter than times vector!" << std::endl \
+       << "Power vector size is " << b_powers.size() << " and times vector size is " << b_times.size() << "." << std::endl;
+    throw ValueError(ss.str());
+  }
+  if(b_fluxes.size()!=(b_times.size()-1) && b_fluxes.size()!=0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::solve(" << __LINE__ << ") : Fluxes vector must be exactly 1 element shorter than times vector!" << std::endl \
+       << "Fluxes vector size is " << b_fluxes.size() << " and times vector size is " << b_times.size() << "." << std::endl;
+    throw ValueError(ss.str());
+  }
   Origen::SP_Solver solver;
   ScaleUtils::IO::DB db;
   db.set<std::string>("solver","cram");
@@ -261,9 +424,30 @@ void cyclus2origen::solve(){
 }
 
 void cyclus2origen::solve(std::vector<double>& times, std::vector<double>& fluxes, std::vector<double>& powers){
-  Check(b_mat!=NULL);
-  Check(fluxes.size()>0||powers.size()>0);
-  Check(fluxes.size()==(times.size()-1)||powers.size()==(times.size()-1));
+  using cyclus::StateError;
+  using cyclus::ValueError;
+  if(b_mat==NULL){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::solve(" << __LINE__ << ") : No material object found on this interface object!  Use set_materials() or set_materials_with_masses()." << std::endl;
+    throw StateError(ss.str());
+  }
+  if(powers.size()==0 && fluxes.size()==0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::solve(" << __LINE__ << ") : No powers or fluxes found on this interface object!  Use set_fluxes or set_powers." << std::endl;
+    throw StateError(ss.str());
+  }
+  if(powers.size()!=(times.size()-1) && powers.size()!=0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::solve(" << __LINE__ << ") : Powers vector must be exactly 1 element shorter than times vector!" << std::endl \
+       << "Power vector size is " << powers.size() << " and times vector size is " << times.size() << "." << std::endl;
+    throw ValueError(ss.str());
+  }
+  if(fluxes.size()!=(times.size()-1) && fluxes.size()!=0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::solve(" << __LINE__ << ") : Fluxes vector must be exactly 1 element shorter than times vector!" << std::endl \
+       << "Fluxes vector size is " << fluxes.size() << " and times vector size is " << times.size() << "." << std::endl;
+    throw ValueError(ss.str());
+  }
   Origen::SP_Solver solver;
   ScaleUtils::IO::DB db;
   db.set<std::string>("solver","cram");
@@ -302,8 +486,12 @@ void cyclus2origen::get_concentrations(std::vector<std::vector<double>> &concs_o
 }
 
 void cyclus2origen::get_concentrations_at(int p, std::vector<double> &concs_out) const{
-  Check(p>=0);
-  Check(p<=b_mat->ntimes());
+  using cyclus::ValueError;
+  if(p<0 || p>=b_mat->ntimes()){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::get_concentrations_at(" << __LINE__ << ") : Step requested " << p << " falls outside the bounds [0," << b_mat->ntimes() << "]!" << std::endl;
+    throw ValueError(ss.str());
+  }
   Origen::SP_DoubleList vals = b_mat->amount_at(p);
   for(size_t i = 0; i < vals->size(); i++){
     concs_out.push_back(vals->at(i));
@@ -318,12 +506,21 @@ void cyclus2origen::get_concentrations_final(std::vector<double> &concs_out) con
 }
 
 void cyclus2origen::get_masses(std::vector<std::vector<double> > &masses_out) const{
-  Check(masses_out.empty());
+  using cyclus::ValueError;
+  if(!masses_out.empty()){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::get_masses(" << __LINE__ << ") : Return vector for masses is not empty upon function call!" << std::endl;
+    throw ValueError(ss.str());
+  }
   std::vector<std::vector<double> > concs;
   this->get_concentrations(concs);
   std::vector<int> ids;
   this->get_ids(ids);
-  Check(ids.size()==concs[0].size());
+  if(ids.size()!=concs[0].size()){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::get_masses(" << __LINE__ << ") : Size mismatch between returned ID vector size and returned concentrations vector size!" << std::endl;
+    throw ValueError(ss.str());
+  }
   Origen::ConcentrationConverter cv;
   for(size_t i = 0; i < concs.size(); i++){
     std::vector<double> tmp;
@@ -335,7 +532,12 @@ void cyclus2origen::get_masses(std::vector<std::vector<double> > &masses_out) co
 }
 
 void cyclus2origen::get_masses_at(int p, std::vector<double> &masses_out) const{
-  Check(masses_out.empty());
+  using cyclus::ValueError;
+  if(!masses_out.empty()){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::get_masses_at(" << __LINE__ << ") : Masses return vector is not empty upon function call!" << std::endl;
+    throw ValueError(ss.str());
+  }
   std::vector<double> concs;
   this->get_concentrations_at(p,concs);
   std::vector<int> ids;
@@ -347,7 +549,12 @@ void cyclus2origen::get_masses_at(int p, std::vector<double> &masses_out) const{
 }
 
 void cyclus2origen::get_masses_final(std::vector<double> &masses_out) const{
-  Check(masses_out.empty());
+  using cyclus::ValueError;
+  if(!masses_out.empty()){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::get_masses_final(" << __LINE__ << ") : Masses return vector is not empty upon function call!" << std::endl;
+    throw ValueError(ss.str());
+  }
   std::vector<double> concs;
   this->get_concentrations_final(concs);
   std::vector<int> ids;
@@ -375,15 +582,26 @@ void cyclus2origen::prob_spec_lib(Origen::SP_Library lib,std::vector<double> &ti
   if(fluxes.size()>0&&powers.size()==0){
     for(auto& flux : fluxes) powers.push_back(flux*b_mat->power_factor_bos());
   }else if(fluxes.size()>0&&powers.size()>0){
-    Check(FALSE);
+    std::stringstream ss;
+    ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Both the fluxes and powers vectors have values! Choose one!" << std::endl;
+    throw cyclus::ValueError(ss.str());
   }
   std::vector<double> burnups;
-  Check(times.size()==powers.size()+1);
+  if(times.size()!=powers.size()+1){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Powers or fluxes vectors not exactly 1 element shorter than times vector!" << std::endl \
+       << "Powers or fluxes vector has " << powers.size() << " elements and times vector has " << times.size() << " elements." << std::endl;
+    throw cyclus::ValueError(ss.str());
+  }
   for(size_t i = 0; i < powers.size(); i++){
 // 1e3 factor arises from converting powers from watts to megawatts and mass from g to MT.
     burnups.push_back(1e3*powers[i]*(times[i+1]-times[i])/b_mat->initial_hm_mass());
   }
-  Check(burnups.size()==powers.size());
+  if(burnups.size()!=powers.size()){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Calculated burnup vector does not have same size as provided powers vector!" << std::endl;
+    throw cyclus::StateError(ss.str());
+  }
   lib->interpolate_Interp1D(burnups);
 }
 

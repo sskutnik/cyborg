@@ -23,7 +23,7 @@ protected:
     lib_names.push_back("ce14_e20.arplib");
     lib_names.push_back("ce14_e30.arplib");
 
-    id_tags["Assembly Type"] = "ge7x7-0";
+    id_tags["Assembly Type"] = "ce14x14";
     id_tags["Fuel Type"] = "Uranium";
     id_tags["Something"] = "Else";
 
@@ -74,6 +74,8 @@ TEST_F(OrigenInterfaceTester,libManipulation)
 
 TEST_F(OrigenInterfaceTester,idTagManipulation){
 
+  EXPECT_THROW(tester.remove_id_tag(id_tags.begin()->first),cyclus::StateError);
+
   tester.set_id_tags(id_tags);
 
   std::vector<std::string> names;
@@ -107,6 +109,8 @@ TEST_F(OrigenInterfaceTester,idTagManipulation){
 }
 
 TEST_F(OrigenInterfaceTester,parameterManipulation){
+
+  EXPECT_THROW(tester.remove_parameter(params.begin()->first),cyclus::StateError);
 
   tester.set_parameters(params);
 
@@ -144,9 +148,8 @@ TEST_F(OrigenInterfaceTester,parameterManipulation){
 TEST_F(OrigenInterfaceTester,interpolationTest){
   // Tests for failure, not correctness.
   // No methods currently in place to test for correctness.
-  EXPECT_TRUE(TRUE);
-  tester.remove_lib_names(lib_names);
-  tester.set_lib_path("/home/nsly/scale_dev_data/arplibs");
+
+  EXPECT_THROW(tester.interpolate(),cyclus::StateError);
 
   id_tags.erase("Something");
   tester.set_id_tags(id_tags);
@@ -155,14 +158,13 @@ TEST_F(OrigenInterfaceTester,interpolationTest){
   params.erase("Fuel Temperature");
   tester.set_parameters(params);
 
+  EXPECT_THROW(tester.interpolate(),cyclus::ValueError);
+
+  tester.set_lib_path("/home/nsly/scale_dev_data/arplibs");
   std::cout << "Expect next line to be warning about unspecified tag 'Moderator Density'." << std::endl;
   tester.interpolate();
 }
 /*
-int main(int argc, char **argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
 
 int main(int argc, char ** argv){
   OrigenInterface::cyclus2origen tester;
