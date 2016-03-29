@@ -6,7 +6,6 @@
 #include "Origen/Core/io/LibraryIO.h"
 #include "ScaleUtils/IO/DB.h"
 #include "ScaleUtils/IO/Utils.h"
-#include "Nemesis/harness/DBC.hh"
 
 namespace OrigenInterface {
 
