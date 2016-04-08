@@ -125,11 +125,6 @@ void cyclus2origen::get_id_tags(std::vector<std::string> &names, std::vector<std
 void cyclus2origen::set_materials_with_masses(std::vector<int> &ids, const std::vector<double> &masses){
   using cyclus::StateError;
   using cyclus::ValueError;
-  if(b_lib==NULL){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::set_materials_with_masses(" << __LINE__ << ") : No library found on this interface object! Run interpolate() first." << std::endl;
-    throw StateError(ss.str());
-  }
   if(ids.size()==0){
     std::stringstream ss;
     ss << "Cyborg::reactor::set_materials_with_masses(" << __LINE__ << ") : No IDs provided in ID vector!" << std::endl;
@@ -153,7 +148,7 @@ void cyclus2origen::set_materials_with_masses(std::vector<int> &ids, const std::
   this->set_materials(ids,concs);
 }
 
-void cyclus2origen::set_materials(std::vector<int> &ids, const std::vector<double> &concs){
+void cyclus2origen::set_materials(const std::vector<int> &ids, const std::vector<double> &concs){
   using cyclus::StateError;
   using cyclus::ValueError;
   if(b_lib==NULL){
@@ -182,19 +177,41 @@ void cyclus2origen::set_materials(std::vector<int> &ids, const std::vector<doubl
     throw ValueError(ss.str());
   }
   std::string name = "cyclus_";
-  name.append(b_interp_name);
+  if(std::string::npos==b_interp_name.find(name)){
+    name.append(b_interp_name);
+  }
   int id = 1001;
+  std::vector<int> tmp_ids;
+  tmp_ids.assign(ids.begin(),ids.end());
+  std::vector<double> tmp_concs;
+  tmp_concs.assign(concs.begin(),concs.end());
   for(size_t i = 0; i < ids.size(); i++){
-    if(ScaleData::Utils::is_valid_zzzaaai(ids[i])) ids[i] = ScaleData::Utils::zzzaaai_to_pizzzaaa(ids[i]);
-    if(!ScaleData::Utils::is_valid_pizzzaaa(ids[i])){
-      std::stringstream ss;
-      ss << "Cyborg::reactor::set_materials(" << __LINE__ << ") : Unrecognizeable nuclide ID name! Use zzzaaai or pizzzaaa format." << std::endl;
-      throw ValueError(ss.str());
+    if(b_init_ids.size() <= i || b_init_ids.at(i)!=ids.at(i)){
+      b_init_ids.clear();
+      b_init_concs.clear();
+      for(size_t i = 0; i < tmp_ids.size(); i++){
+        if(ScaleData::Utils::is_valid_pizzzaaa(tmp_ids[i])) continue;
+        if(ScaleData::Utils::is_valid_zzzaaai(tmp_ids[i])) tmp_ids[i] = ScaleData::Utils::zzzaaai_to_pizzzaaa(tmp_ids[i]);
+        if(!ScaleData::Utils::is_valid_pizzzaaa(tmp_ids[i])){
+          std::stringstream ss;
+          ss << "Cyborg::reactor::set_materials(" << __LINE__ << ") : Unrecognizeable nuclide ID name! Use zzzaaai or pizzzaaa format." << std::endl;
+          throw ValueError(ss.str());
+        }
+      }
+      b_init_ids.assign(tmp_ids.begin(),tmp_ids.end());
+      b_init_concs.assign(tmp_concs.begin(),tmp_concs.end());
+      break;
+    }else if(b_init_concs.at(i)!=concs.at(i)){
+      b_init_concs.at(i)=concs.at(i);
     }
   }
-  Origen::SP_Material mat(new Origen::Material(b_lib,name,id,b_vol));
-  mat->set_numden_bos(concs,ids,b_vol);
+  Origen::SP_Material mat = Origen::SP_Material(new Origen::Material(b_lib,name,id,b_vol));
+  mat->set_numden_bos(tmp_concs,tmp_ids,b_vol);
   b_mat = mat;
+}
+
+void cyclus2origen::delete_material(){
+  if(b_mat!=nullptr) b_mat->clear();
 }
 
 void cyclus2origen::set_mat_units(const std::string mat_units){
@@ -205,7 +222,17 @@ void cyclus2origen::set_time_units(const char* time_units){
   b_time_units = Origen::Time::units(time_units);
 }
 
-void cyclus2origen::set_flux(const std::vector<double> &fluxes){
+void cyclus2origen::add_time_step(const double time){
+  using cyclus::StateError;
+  if(time<0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::add_time_step(" << __LINE__ << ") : Time value provided is non-physical (<0)!" << std::endl;
+    throw StateError(ss.str());
+  }
+  b_times.push_back(time);
+}
+
+void cyclus2origen::set_fluxes(const std::vector<double> &fluxes){
   using cyclus::StateError;
   if(fluxes.size()==0){
     std::stringstream ss;
@@ -213,6 +240,20 @@ void cyclus2origen::set_flux(const std::vector<double> &fluxes){
     throw StateError(ss.str());
   }
   b_fluxes = fluxes;
+}
+
+void cyclus2origen::add_flux(const double flux){
+  using cyclus::StateError;
+  if(flux<0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::add_flux(" << __LINE__ << ") : Flux value provided is non-physical (<0)!" << std::endl;
+    throw StateError(ss.str());
+  }
+  b_fluxes.push_back(flux);
+}
+
+void cyclus2origen::delete_fluxes(){
+  if(b_fluxes.size()>0) b_fluxes.clear();
 }
 
 void cyclus2origen::set_powers(const std::vector<double> &powers){
@@ -223,6 +264,20 @@ void cyclus2origen::set_powers(const std::vector<double> &powers){
     throw StateError(ss.str());
   }
   b_powers = powers;
+}
+
+void cyclus2origen::add_power(const double power){
+  using cyclus::StateError;
+  if(power<0){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::add_power(" << __LINE__ << ") : Power provided is non-physical (<0)!" << std::endl;
+    throw StateError(ss.str());
+  }
+  b_powers.push_back(power);
+}
+
+void cyclus2origen::delete_powers(){
+  if(b_powers.size()>0) b_powers.clear();
 }
 
 void cyclus2origen::add_parameter(const std::string name, const double value){
@@ -323,7 +378,6 @@ void cyclus2origen::interpolate() {
   }
 
   if(b_lib_names.size()==0){
-    // figure out how to grab filenames from a directory.
     struct dirent *drnt;
     auto dr = opendir(b_lib_path.c_str());
     std::string midstring = "";
@@ -382,6 +436,11 @@ void cyclus2origen::solve(){
     ss << "Cyborg::reactor::solve(" << __LINE__ << ") : No material object found on this interface object!  Use set_materials() or set_materials_with_masses()." << std::endl;
     throw StateError(ss.str());
   }
+  if(b_mat->library()==NULL){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::solve(" << __LINE__ << ") : No library object found on the material object on this interface object.!" << std::endl;
+    throw StateError(ss.str());
+  }
   if(b_powers.size()==0 && b_fluxes.size()==0){
     std::stringstream ss;
     ss << "Cyborg::reactor::solve(" << __LINE__ << ") : No powers or fluxes found on this interface object!  Use set_fluxes or set_powers." << std::endl;
@@ -399,16 +458,17 @@ void cyclus2origen::solve(){
        << "Fluxes vector size is " << b_fluxes.size() << " and times vector size is " << b_times.size() << "." << std::endl;
     throw ValueError(ss.str());
   }
+  prob_spec_lib(b_lib,b_times,b_fluxes,b_powers);
+  set_materials(b_init_ids,b_init_concs);
   Origen::SP_Solver solver;
   ScaleUtils::IO::DB db;
   db.set<std::string>("solver","cram");
   solver = Origen::SolverSelector::get_solver(db);
   b_mat->set_solver(solver);
-  prob_spec_lib(b_lib,b_times,b_fluxes,b_powers);
   size_t num_steps = b_powers.size()>b_fluxes.size() ? b_powers.size() : b_fluxes.size();
   for(size_t i = 0; i < num_steps; i++){
     b_mat->add_step(b_times[i+1]-b_times[i]);
-    b_mat->set_transition_matrix(b_mat->library()->newsp_transition_matrix_at(0));
+    b_mat->set_transition_matrix(b_mat->library()->newsp_transition_matrix_at(i));
     if(b_fluxes.size()==0){
       b_mat->set_flux(b_powers[i]/b_mat->power_factor_bos());
     }else if(b_powers.size()==0){
@@ -474,7 +534,6 @@ void cyclus2origen::solve(std::vector<double>& times, std::vector<double>& fluxe
 
 void cyclus2origen::get_concentrations(std::vector<std::vector<double>> &concs_out) const{
   for(size_t i = 0; i < b_mat->ntimes(); i++){
-    std::cout << "Getting concentrations at time " << b_mat->dt() << "." << std::endl;
     Origen::SP_DoubleList vals = b_mat->amount_at(i);
     std::vector<double> vals_vec;
     for(size_t j = 0; j < vals->size(); j++){
@@ -593,7 +652,7 @@ void cyclus2origen::prob_spec_lib(Origen::SP_Library lib,std::vector<double> &ti
     throw cyclus::ValueError(ss.str());
   }
   for(size_t i = 0; i < powers.size(); i++){
-// 1e3 factor arises from converting powers from watts to megawatts and mass from g to MT.
+    // 1e3 factor arises from converting powers from watts to megawatts and mass from g to MT.
     burnups.push_back(1e3*powers[i]*(times[i+1]-times[i])/b_mat->initial_hm_mass());
   }
   if(burnups.size()!=powers.size()){
@@ -601,7 +660,7 @@ void cyclus2origen::prob_spec_lib(Origen::SP_Library lib,std::vector<double> &ti
     ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Calculated burnup vector does not have same size as provided powers vector!" << std::endl;
     throw cyclus::StateError(ss.str());
   }
-  lib->interpolate_Interp1D(burnups);
+  b_lib = lib->interpolate_Interp1D(burnups);
 }
 
 }//namespace

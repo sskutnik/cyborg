@@ -23,6 +23,8 @@ protected:
     lib_names.push_back("ce14_e20.arplib");
     lib_names.push_back("ce14_e30.arplib");
 
+    lib_path = "/home/nsly/scale_dev_data/arplibs";
+
     id_tags["Assembly Type"] = "ce14x14";
     id_tags["Fuel Type"] = "Uranium";
     id_tags["Something"] = "Else";
@@ -30,6 +32,28 @@ protected:
     params["Enrichment"] = 4.5;
     params["Moderator Density"] = 0.45;
     params["Fuel Temperature"] = 9000;
+
+    ids.push_back(922350);
+    ids.push_back(922380);
+
+    fluxes.push_back(1.e14);
+    fluxes.push_back(2.e14);
+    fluxes.push_back(3.e14);
+
+    powers.push_back(1.e7);
+    powers.push_back(2.e7);
+    powers.push_back(3.e7);
+
+    concs.push_back(4);
+    concs.push_back(96);
+
+    masses.push_back(5);
+    masses.push_back(95);
+
+    times.push_back(0.);
+    times.push_back(100.);
+    times.push_back(200.);
+    times.push_back(300.);
   }
 
   void SetUp()
@@ -43,8 +67,17 @@ protected:
   }
 // define variables that don't require new calls here.
   std::vector<std::string> lib_names;
+  std::string lib_path;
   std::map<std::string,std::string> id_tags;
   std::map<std::string,double> params;
+  std::vector<int> ids;
+  std::vector<double> fluxes;
+  std::vector<double> powers;
+  std::vector<double> concs;
+  std::vector<double> masses;
+  std::vector<double> times;
+  std::vector<int> iblank;
+  std::vector<double> dblank;
   cyclus2origen tester;
 };
 
@@ -160,9 +193,85 @@ TEST_F(OrigenInterfaceTester,interpolationTest){
 
   EXPECT_THROW(tester.interpolate(),cyclus::ValueError);
 
-  tester.set_lib_path("/home/nsly/scale_dev_data/arplibs");
+  tester.set_lib_path(lib_path);
   std::cout << "Expect next line to be warning about unspecified tag 'Moderator Density'." << std::endl;
   tester.interpolate();
+}
+
+TEST_F(OrigenInterfaceTester,materialTest){
+  EXPECT_TRUE(TRUE);
+
+  id_tags.erase("Something");
+  params.erase("Fuel Temperature");
+  tester.set_id_tags(id_tags);
+  tester.set_parameters(params);
+  tester.set_lib_path(lib_path);
+
+  EXPECT_THROW(tester.set_materials(ids,concs),cyclus::StateError);
+
+  tester.interpolate();
+
+  EXPECT_THROW(tester.set_materials(iblank,concs),cyclus::StateError);
+  EXPECT_THROW(tester.set_materials_with_masses(iblank,masses),cyclus::StateError);
+  EXPECT_THROW(tester.set_materials(ids,dblank),cyclus::StateError);
+  EXPECT_THROW(tester.set_materials_with_masses(ids,dblank),cyclus::StateError);
+  iblank.push_back(1);
+  EXPECT_THROW(tester.set_materials(iblank,concs),cyclus::ValueError);
+  EXPECT_THROW(tester.set_materials_with_masses(iblank,masses),cyclus::ValueError);
+
+  tester.set_materials(ids,concs);
+  ids[0] = 922350;
+  ids[1] = 922380;
+  tester.set_materials_with_masses(ids,masses);
+}
+/* Commented out until such time as fluxes are properly implemented.
+** Currently hindered by the need to translate to flux in order to
+** interpolate the Origen library over burnup to get transition
+** structure data at the appropriate burnups, which is the only way
+** to get a relevant conversion from flux to power/burnup.
+TEST_F(OrigenInterfaceTester,fluxTest){
+  EXPECT_THROW(tester.set_fluxes(dblank),cyclus::StateError);
+  tester.set_fluxes(fluxes);
+}
+*/
+TEST_F(OrigenInterfaceTester,powerTest){
+  EXPECT_THROW(tester.set_powers(dblank),cyclus::StateError);
+  tester.set_powers(powers);
+}
+
+TEST_F(OrigenInterfaceTester,solveTest){
+  EXPECT_THROW(tester.solve(),cyclus::StateError);
+  id_tags.erase("Something");
+  params.erase("Fuel Temperature");
+  params["Moderator Density"] = 0.7332;
+  tester.set_id_tags(id_tags);
+  tester.set_parameters(params);
+  tester.set_lib_path(lib_path);
+  tester.interpolate();
+  tester.set_materials(ids,concs);
+  EXPECT_THROW(tester.solve(),cyclus::StateError);
+
+  tester.set_powers(powers);
+  EXPECT_THROW(tester.solve(),cyclus::ValueError);
+  tester.delete_powers();
+
+  dblank.push_back(1.);
+  tester.set_time_steps(times);
+  tester.set_powers(dblank);
+  EXPECT_THROW(tester.solve(),cyclus::ValueError);
+  tester.delete_powers();
+
+  tester.set_powers(powers);
+  tester.solve();
+
+  tester.interpolate();
+  ids[0]=922350;
+  ids[1]=922380;
+  tester.set_materials_with_masses(ids,masses);
+
+  tester.add_time_step(500);
+  tester.add_power(5.e7);
+  tester.solve();
 }
 /*
 

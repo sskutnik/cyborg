@@ -150,7 +150,12 @@ public:
     ** \param - Vector of concentrations.  Should directly correspond
     **              to the vector of ids.
     */
-    void set_materials(std::vector<int>&, const std::vector<double>&);
+    void set_materials(const std::vector<int>&, const std::vector<double>&);
+
+    /*!
+    ** \brief - Function to delete/clear the material object to be replaced.
+    */
+    void delete_material();
 
     /*!
      ** \brief - Function to set the units used in the concentrations vectors.
@@ -173,38 +178,68 @@ public:
     void set_time_steps(const std::vector<double>& times){b_times=times;};
 
     /*!
+     ** \brief - Function to add an additional time step to the calculation.
+     **          Does require that a new solve() function call, after
+     **          also adding a new flux or power. Can function as individual
+     **          time step addition having not put any previous time steps.
+     ** \param - Double representing the next time step.
+     */
+    void add_time_step(const double);
+
+    /*!
      ** \brief - Function to specify the time unit used in the vector
-     **          in set_time_steps.  
+     **          in set_time_steps.
      ** \param - String declaring the units for the time step values.
      **          Accepts full words in all lower case (i.e. - 'seconds',
      **          'days','years').
      */
     void set_time_units(const char* time_units);
 
-    /*!
-     ** \brief - Function to add a time step on to the end of an existing
-     **          set of times and fluxes.
-     ** \param - New time to target for calculation.  Must be greater
-     **          than the greatest current time.  If we want to add a
-     **          new time step in the middle, the calculation will have
-     **          to be redone.
-     ** \param - New flux to correspond with the new time.
-     */
-//    void add_time_step(double, double, double);
-
+private:
     /*!
      ** \brief - Function to input the fluxes for each burn step.
      ** \param - Vector of fluxes for each time step.
      **          Units of n/cm2*s.
      */
-    void set_flux(const std::vector<double>&);
+    void set_fluxes(const std::vector<double>&);
 
+    /*!
+     ** \brief - Function to add another flux for a new time step.
+     **          Requires that a new time step be added and the
+     **          solve() function be called again.
+     ** \param - Double of the flux for the new time step.
+     */
+    void add_flux(const double);
+
+    /*!
+     ** \brief - Function to delete all of the fluxes from this object.
+     **          Can also just call set_fluxes with a new set of fluxes
+     **          and the old values will be overwritten.
+     */
+    void delete_fluxes();
+
+public:
     /*!
      ** \brief - Function to input the powers for each burn step.
      ** \param - Vector of powers for each time step.
      **          Units of watts.
      */
     void set_powers(const std::vector<double>&);
+
+    /*!
+     ** \brief - Function to add a new power for a new time step.
+     **          Requires that a new time step be added as well as
+     **          calling the solve() function again.
+     ** \param - Double of the power for the new time step.
+     */
+    void add_power(const double);
+
+    /*!
+     ** \brief - Function to delete the powers on this object.
+     **          Powers can also be overwritten using the set_powers()
+     **          function.
+     */
+    void delete_powers();
 
     /*!
      ** \brief - Setting a new tag or changing the value
@@ -368,6 +403,8 @@ protected:
     std::string b_lib_path;
     std::string b_interp_name;
     const double b_vol=1.;
+    std::vector<int> b_init_ids;
+    std::vector<double> b_init_concs;
     std::vector<int> b_ids;
     std::vector<double> b_concs;
     std::vector<double> b_burnups;
