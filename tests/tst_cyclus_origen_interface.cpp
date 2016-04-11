@@ -273,6 +273,55 @@ TEST_F(OrigenInterfaceTester,solveTest){
   tester.add_power(5.e7);
   tester.solve();
 }
+
+TEST_F(OrigenInterfaceTester,resultTest){
+  id_tags.erase("Something");
+  params.erase("Fuel Temperature");
+  params["Moderator Density"] = 0.7332;
+  tester.set_id_tags(id_tags);
+  tester.set_parameters(params);
+  tester.set_lib_path(lib_path);
+  tester.interpolate();
+  tester.set_materials(ids,concs);
+  tester.set_powers(powers);
+  tester.set_time_steps(times);
+  tester.solve();
+
+  std::vector<int> ids_out;
+  tester.get_ids(ids_out);
+  EXPECT_EQ(1946,ids_out.size()) << "Resulting ID vector is not of the correct size.";
+
+  std::vector<std::vector<double> > concs_out;
+  tester.get_concentrations(concs_out);
+
+  std::vector<std::vector<double> > masses_out;
+  tester.get_masses(masses_out);
+
+  EXPECT_EQ(times.size(),concs_out.size()) << "get_concentrations() returned an unexpected number of concentration vectors!";
+  EXPECT_EQ(times.size(),masses_out.size()) << "get_masses() returned an unexpected number of concentration vectors!";
+  for(size_t i = 0; i < times.size(); i++){
+    EXPECT_EQ(1946,concs_out[i].size()) << "Concentrations vector #" << i << " for time " << times[i] << " is of the incorrect size.";
+    EXPECT_EQ(1946,masses_out[i].size()) << "Masses vector #" << i << " for time " << times[i] << " is of the incorrect size.";
+
+    std::vector<double> conc_out;
+    tester.get_concentrations_at(i,conc_out);
+    std::vector<double> mass_out;
+    tester.get_masses_at(i,mass_out);
+    for(size_t j = 0; j < concs_out[i].size(); j++){
+      ASSERT_EQ(conc_out[j],concs_out[i][j]) << "Disagreement between return of get_concentrations() and get_concentrations_at() for " << ids_out[j] << " at time " << times[i] << ".";
+      ASSERT_EQ(mass_out[j],masses_out[i][j]) << "Disagreement between return of get_masses() and get_masses_at() for " << ids_out [j] << " at time " << times[i] << ".";
+    }
+  }
+
+  std::vector<double> conc_out;
+  tester.get_concentrations_final(conc_out);
+  std::vector<double> mass_out;
+  tester.get_masses_final(mass_out);
+  for(size_t i = 0; i < concs_out[concs_out.size()-1].size(); i++){
+    EXPECT_EQ(conc_out[i],concs_out[concs_out.size()-1][i]) << "Disagreement between return of get_concentrations() and get_concentrations_final().";
+    EXPECT_EQ(mass_out[i],masses_out[masses_out.size()-1][i]) << "Disagreement between return of get_masses() and get_masses_final().";
+  }
+}
 /*
 
 int main(int argc, char ** argv){

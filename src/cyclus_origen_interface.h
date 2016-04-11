@@ -323,13 +323,13 @@ public:
      ** \note - Only the fluxes or powers parameters should be
      **         populated vectors.  The other should have size==0.
      */
-    
+
     void solve(std::vector<double>& times,std::vector<double>& fluxes,std::vector<double>& powers);
 
     /*!
      ** \brief - Function to retrieve all of the concentrations at
      **          all of the times from the calculation.
-     ** \param - Vector of vectors to be filled with all final 
+     ** \param - Vector of vectors to be filled with all final
      **          concentration values.
      */
     void get_concentrations(std::vector<std::vector<double>>&) const;
@@ -337,7 +337,7 @@ public:
     /*!
      ** \brief - Function to retrieve the concentrations at a
      **          particular time from the times vector.
-     ** \param - Integer indicating the burn step for which 
+     ** \param - Integer indicating the burn step for which
      **          concentrations are desired.
      ** \param - Vector to be filled with the final concentration
      **          values for a particular burn step.

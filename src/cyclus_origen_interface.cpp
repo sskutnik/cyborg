@@ -583,7 +583,7 @@ void cyclus2origen::get_masses(std::vector<std::vector<double> > &masses_out) co
   for(size_t i = 0; i < concs.size(); i++){
     std::vector<double> tmp;
     for(size_t j = 0; j < concs[0].size(); j++){
-      tmp.push_back(cv.convert_to(Origen::ConcentrationUnit::KILOGRAMS,ids[i],Origen::ConcentrationUnit::CM_2_BARN,concs[i][j],b_vol));
+      tmp.push_back(cv.convert_to(Origen::ConcentrationUnit::KILOGRAMS,ids[j],Origen::ConcentrationUnit::CM_2_BARN,concs[i][j],b_vol));
     }
     masses_out.push_back(tmp);
   }
