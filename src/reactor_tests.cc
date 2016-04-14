@@ -1,6 +1,6 @@
-#include <gtest/gtest.h>
-
 #include "reactor_tests.h"  
+#include "facility_tests.h"
+#include "agent_tests.h"
 
 using cyborg::reactor;
 
@@ -21,12 +21,12 @@ void reactorTest::InitParameters(){
   in_r1 = "in_r1";
   in_c1 = "in_c1";
   out_c1 = "out_c1";
-  power_cap = 100;
-  fuel_capacity = 20;
+  power_cap = 100.0;
+  fuel_capacity = 20.0;
   cycle_length = 1;
   cap_factor = 0.9;
   reactor_lifetime = 10;
-  enrichment = 4;
+  enrichment = 4.0;
 
   cyclus::CompMap v;
   v[922350000] = 0.04;
@@ -45,9 +45,16 @@ void reactorTest::SetUpReactor(){
   src_facility_->cap_factor = cap_factor;
   src_facility_->reactor_lifetime = reactor_lifetime;
   src_facility_->enrichment = enrichment;
+
+  src_facility_->fuel.capacity(src_facility_->fuel_capacity*1000);
+   
+  // Create an input material buffer of fresh fuel (100 MTU)
+  cyclus::Composition::Ptr rec = tc_.get()->GetRecipe(in_r1);
+  cyclus::Material::Ptr recmat = cyclus::Material::CreateUntracked(src_facility_->fuel.space(), rec);
+  src_facility_->fresh_inventory.Push(recmat); 
 }
 
-void reactorTest::TestInitState(Storage* fac){
+void reactorTest::TestInitState(cyborg::reactor* fac){
   EXPECT_EQ(in_r1, fac->fuel_recipe);
   EXPECT_EQ(in_c1, fac->fresh_fuel);
   EXPECT_EQ(out_c1, fac->spent_fuel);
@@ -77,8 +84,15 @@ TEST_F(reactorTest, Tick) {
   // Test reactor specific behaviors of the Tick function here
 }
 
+//\TODO Add a TickDecom test
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 TEST_F(reactorTest, Tock) {
+  src_facility_->fuel.capacity(src_facility_->fuel_capacity*1000);
+  try{ src_facility_->Tock(); }
+  catch( std::exception& ex) {
+    std::cerr << "Exception thrown: " << ex.what() << std::endl;
+  }
   EXPECT_NO_THROW(src_facility_->Tock());
   // Test reactor specific behaviors of the Tock function here
 }

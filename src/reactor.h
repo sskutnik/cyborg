@@ -4,7 +4,7 @@
 #include <string>
 
 #include "cyclus.h"
-#include "cyclus_origen_interface.h"
+#include "orglib_default_location.h"
 
 namespace cyborg {
 
@@ -31,7 +31,9 @@ namespace cyborg {
 /// Place a description of the detailed behavior of the agent. Consider
 /// describing the behavior at the tick and tock as well as the behavior
 /// upon sending and receiving materials and messages.
-class reactor : public cyclus::Facility  {
+//class reactor : public cyclus::Facility  {
+class reactor : public cyclus::Facility,
+    public cyclus::toolkit::CommodityProducer {
  public:
   /// Constructor for reactor Class
   /// @param ctx the cyclus context for access to simulation-wide parameters
@@ -76,23 +78,23 @@ class reactor : public cyclus::Facility  {
   #pragma cyclus var {"tooltip":"Input fuel commodity",\
                       "doc":"Fuel name accepted by this reactor",\
                       "uitype":"incommodity","uilabel":"Fuel Commodity"}
-  std::string fresh_fuel;
+  std::string fresh_fuel = "";
   // Add multiple fuel options later
 
   #pragma cyclus var {"tooltip":"Input fuel recipe",\
                       "doc":"Fuel recipe accepted by reactor",\
                       "uitype":"recipe","uilabel":"Fuel Recipe"}
-  std::string fuel_recipe;                      
+  std::string fuel_recipe = "";                      
 
   #pragma cyclus var {"tooltip":"Spent fuel commodity",\
                       "doc":"Name of spent fuel commodity",\
                       "uitype":"outcommodity","uilabel":"Spent Fuel Commodity"}
-  std::string spent_fuel;
+  std::string spent_fuel = "";
 
   #pragma cyclus var {"tooltip":"Reactor power name",\
                       "doc":"Name of commodity reactor produces",\
                       "uilabel":"Power Name"}
-  std::string power_name;
+  std::string power_name = "";
 
   #pragma cyclus var {"tooltip":"Thermal Power capacity",\
                       "doc":"Reactor thermal power capacity (MW)",\
@@ -126,7 +128,8 @@ class reactor : public cyclus::Facility  {
   #pragma cyclus var {"tooltip":"Path to ORIGEN Libraries",\
                       "doc":"Path to ORIGEN Libraries",\
                       "uilabel":"Path to ORIGEN Libraries"}
-  std::string lib_path;
+  // Default set by environment / build argument in orglib_default_location.h
+  std::string lib_path = ORIGEN_LIBS_DEFAULT; 
   
   #pragma cyclus var {"tooltip":"Fresh fuel enrichment",\
                       "doc":"Fresh fuel enrichment",\
