@@ -158,6 +158,7 @@ IF(NOT CYCLUS_DOC_ONLY)
     # Link ONLY as necessary (i.e., OrigenInterface) to avoid gtest conflict via Nemesis
     FIND_PACKAGE(SCALE REQUIRED)
     SET(CYBORG_INCLUDE_DIRS ${CYBORG_INCLUDE_DIRS} ${SCALE_INCLUDE_DIRS})
+    #SET(LIBS ${LIBS} ${SCALE_LIBRARIES})
 
     # include all the directories we just found
     INCLUDE_DIRECTORIES(${CYBORG_INCLUDE_DIRS})

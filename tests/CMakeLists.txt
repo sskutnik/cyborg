@@ -11,7 +11,7 @@
 # CyBORG unit tests
 ###############################################################################
 
-  include_directories( ${CMAKE_CURRENT_SOURCE_DIR} "${PROJECT_SOURCE_DIR}/src" ${CYBORG_INCLUDE_DIRS})
+  include_directories( ${CMAKE_CURRENT_SOURCE_DIR} "${PROJECT_SOURCE_DIR}/src" ${CYBORG_INCLUDE_DIRS} ${CYCLUS_CORE_INCLUDE_DIR})
 
   # Build cyborg_unit_tests
   ADD_EXECUTABLE(cyborg_unit_tests
@@ -20,8 +20,7 @@
   )
   MESSAGE("Cyborg unit tests: ${TestSource}")    
   TARGET_LINK_LIBRARIES(cyborg_unit_tests
-      dl ${LIBS} ${CYBORG_LIB} ${CYCLUS_TEST_LIBRARIES} )
-
+      dl ${LIBS} ${CYCLUS_LIB} ${CYBORG_LIB} ${CYCLUS_TEST_LIBRARIES} ${CYCLUS_CORE_LIBRARIES} )
   INSTALL(TARGETS cyborg_unit_tests
       RUNTIME DESTINATION bin
       COMPONENT testing
@@ -39,10 +38,10 @@
       cyborg_unit_test_driver.cc
       ${OrigenInterface_TEST_CC} )
 
-  TARGET_INCLUDE_DIRECTORIES(OrigenInterface_unit_tests PUBLIC ${SCALE_INCLUDE_DIRS} ) 
+  TARGET_INCLUDE_DIRECTORIES(OrigenInterface_unit_tests PUBLIC ${SCALE_INCLUDE_DIRS} ${CYBORG_INCLUDE_DIRS} ${CYCLUS_CORE_INCLUDE_DIR}) 
 
   TARGET_LINK_LIBRARIES(OrigenInterface_unit_tests
-      dl OrigenInterface ${LIBS} ${CYCLUS_TEST_LIBRARIES} )
+      dl OrigenInterface ${SCALE_LIBRARIES} ${LIBS} ${CYCLUS_TEST_LIBRARIES} ${CYCLUS_CORE_LIBRARIES} )
 
   INSTALL(TARGETS OrigenInterface_unit_tests
       RUNTIME DESTINATION bin
