@@ -62,6 +62,7 @@ void cyclus2origen::set_id_tag(const std::string idname, const std::string idval
 }
 
 void cyclus2origen::set_id_tags(const std::map<std::string,std::string> &tags){
+  if(b_tm==NULL) b_tm = Origen::SP_TagManager(new Origen::TagManager());
   for(auto tag : tags){
     this->set_id_tag(tag.first,tag.second);
   }
@@ -286,6 +287,7 @@ void cyclus2origen::add_parameter(const std::string name, const double value){
 }
 
 void cyclus2origen::set_parameters(const std::map<std::string,double> &params){
+  if(b_tm==NULL) b_tm = Origen::SP_TagManager(new Origen::TagManager());
   for(auto param : params){
     this->add_parameter(param.first,param.second);
   }
@@ -416,8 +418,8 @@ void cyclus2origen::interpolate() {
     throw ValueError(ss.str());
   }
 
+  // Down-select to libraries matching specified ID tags
   tagman = Origen::selectLibraries(tagman,*b_tm);
-
   if(tagman.size() == 0){
     std::stringstream ss;
     ss << "Cyborg::reactor::interpolate(" << __LINE__ << ") : No libraries found that match specified ID tags!" << std::endl;
@@ -639,27 +641,32 @@ void cyclus2origen::prob_spec_lib(Origen::SP_Library lib,std::vector<double> &ti
   }
   if(fluxes.size()>0&&powers.size()==0){
     for(auto& flux : fluxes) powers.push_back(flux*b_mat->power_factor_bos());
-  }else if(fluxes.size()>0&&powers.size()>0){
+  } else if(fluxes.size()>0&&powers.size()>0){
     std::stringstream ss;
     ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Both the fluxes and powers vectors have values! Choose one!" << std::endl;
     throw cyclus::ValueError(ss.str());
   }
-  std::vector<double> burnups;
+
   if(times.size()!=powers.size()+1){
     std::stringstream ss;
     ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Powers or fluxes vectors not exactly 1 element shorter than times vector!" << std::endl \
        << "Powers or fluxes vector has " << powers.size() << " elements and times vector has " << times.size() << " elements." << std::endl;
     throw cyclus::ValueError(ss.str());
   }
+
+  std::vector<double> burnups;
   for(size_t i = 0; i < powers.size(); i++){
     // 1e3 factor arises from converting powers from watts to megawatts and mass from g to MT.
-    burnups.push_back(1e3*powers[i]*(times[i+1]-times[i])/b_mat->initial_hm_mass());
+    burnups.push_back(1.0e3*powers[i]*(times[i+1]-times[i])/b_mat->initial_hm_mass());
+    std::stringstream ss;
+    ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Burnups(" << i << ") = " << burnups[i] << std::endl;
   }
   if(burnups.size()!=powers.size()){
     std::stringstream ss;
     ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Calculated burnup vector does not have same size as provided powers vector!" << std::endl;
     throw cyclus::StateError(ss.str());
   }
+
   b_lib = lib->interpolate_Interp1D(burnups);
 }
 

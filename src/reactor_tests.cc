@@ -21,16 +21,18 @@ void reactorTest::InitParameters(){
   in_r1 = "in_r1";
   in_c1 = "in_c1";
   out_c1 = "out_c1";
-  power_cap = 100.0;
+  power_cap = 100.0; // MWt
   fuel_capacity = 20.0;
   cycle_length = 1;
   cap_factor = 0.9;
   reactor_lifetime = 10;
   enrichment = 4.0;
+  mod_density = 0.0; // Setting to 0 to test auto-interpolation of density
 
   cyclus::CompMap v;
-  v[922350000] = 0.04;
-  v[922380000] = 0.96;
+  v[922350000] = (enrichment/100.0);
+  v[922380000] = (100.0 - enrichment)/100.0;
+  v[80160000]  = 2.0;
   cyclus::Composition::Ptr recipe = cyclus::Composition::CreateFromAtom(v);
   tc_.get()->AddRecipe(in_r1, recipe);
 }
@@ -45,6 +47,7 @@ void reactorTest::SetUpReactor(){
   src_facility_->cap_factor = cap_factor;
   src_facility_->reactor_lifetime = reactor_lifetime;
   src_facility_->enrichment = enrichment;
+  src_facility_->mod_density = mod_density;
 
   src_facility_->fuel.capacity(src_facility_->fuel_capacity*1000);
    
@@ -64,6 +67,8 @@ void reactorTest::TestInitState(cyborg::reactor* fac){
   EXPECT_EQ(cap_factor, fac->cap_factor);
   EXPECT_EQ(reactor_lifetime, fac->reactor_lifetime);
   EXPECT_EQ(enrichment, fac->enrichment);
+  EXPECT_EQ(mod_density, fac->mod_density);
+  std::cerr << "TEST: fac->mod_density = " << fac->mod_density << std::endl;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -89,10 +94,20 @@ TEST_F(reactorTest, Tick) {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 TEST_F(reactorTest, Tock) {
   src_facility_->fuel.capacity(src_facility_->fuel_capacity*1000);
+  src_facility_->assembly_type = "w17x17";
+
+  //std::cerr << "Reactor assembly type: " << src_facility_->assembly_type << std::endl;
+  //std::cerr << "Tock: moderator density = " << src_facility_->mod_density << std::endl;
+  std::cerr << "lib data path: " << src_facility_->lib_path << std::endl; 
+  
   try{ src_facility_->Tock(); }
   catch( std::exception& ex) {
     std::cerr << "Exception thrown: " << ex.what() << std::endl;
   }
+  catch( ... ) {
+    std::cerr << "Unknown exception thrown!" << std::endl;
+  }  
+
   EXPECT_NO_THROW(src_facility_->Tock());
   // Test reactor specific behaviors of the Tock function here
 }

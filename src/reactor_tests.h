@@ -20,7 +20,7 @@ class reactorTest : public ::testing::Test {
   void TestInitState(cyborg::reactor* fac);
 
   std::string in_r1, in_c1, out_c1;
-  double power_cap, fuel_capacity, cap_factor, enrichment;
+  double power_cap, fuel_capacity, cap_factor, enrichment, mod_density;
   int cycle_length, reactor_lifetime;
   
 };
