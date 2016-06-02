@@ -22,7 +22,7 @@ void reactorTest::InitParameters(){
   in_c1 = "in_c1";
   out_c1 = "out_c1";
   power_cap = 100.0; // MWt
-  fuel_capacity = 20.0;
+  fuel_capacity = 20.0E3; // kg
   cycle_length = 1;
   cap_factor = 0.9;
   reactor_lifetime = 10;
@@ -49,11 +49,11 @@ void reactorTest::SetUpReactor(){
   src_facility_->enrichment = enrichment;
   src_facility_->mod_density = mod_density;
 
-  src_facility_->fuel.capacity(src_facility_->fuel_capacity*1000);
+  src_facility_->fuel.capacity(src_facility_->fuel_capacity);
    
   // Create an input material buffer of fresh fuel (100 MTU)
   cyclus::Composition::Ptr rec = tc_.get()->GetRecipe(in_r1);
-  cyclus::Material::Ptr recmat = cyclus::Material::CreateUntracked(src_facility_->fuel.space(), rec);
+  cyclus::Material::Ptr recmat = cyclus::Material::CreateUntracked(src_facility_->fuel.space()*5.0, rec);
   src_facility_->fresh_inventory.Push(recmat); 
 }
 

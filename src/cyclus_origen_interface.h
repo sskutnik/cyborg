@@ -141,10 +141,12 @@ public:
      ** \param - Vector of masses corresponding to the vector of IDs.
      **          Units are currently hard-coded to kilograms.
      */
-    void set_materials_with_masses(std::vector<int>&,const std::vector<double>&);
+    //void set_materials_with_masses(std::vector<int>&,const std::vector<double>&);
 
     /*!
     ** \brief - Function to set the initial materials to be depleted.
+    **          Mass units conversion is automatically handled via ORIGEN;
+    **          mass units assumed to be those specified via set_mass_units
     ** \param - Vector of ids.  Works with ids formatted in either
     **          zzzaaai or pizzzaaa.
     ** \param - Vector of concentrations.  Should directly correspond
@@ -332,7 +334,7 @@ public:
      ** \param - Vector of vectors to be filled with all final
      **          concentration values.
      */
-    void get_concentrations(std::vector<std::vector<double>>&) const;
+    //void get_concentrations(std::vector<std::vector<double>>&) const;
 
     /*!
      ** \brief - Function to retrieve the concentrations at a
@@ -342,7 +344,7 @@ public:
      ** \param - Vector to be filled with the final concentration
      **          values for a particular burn step.
      */
-    void get_concentrations_at(int, std::vector<double>&) const;
+    //void get_concentrations_at(int, std::vector<double>&) const;
 
     /*!
      ** \brief - Function to retrieve the concentrations at the end
@@ -350,13 +352,13 @@ public:
      ** \param - Vector to be filled with resulting concentrations
      **          of final burn step.
      */
-    void get_concentrations_final(std::vector<double>&) const;
+    //void get_concentrations_final(std::vector<double>&) const;
 
-    void get_masses(std::vector<std::vector<double>>&) const;
+    void get_masses(std::vector<std::vector<double>>&, const std::string="kilograms") const;
 
-    void get_masses_at(int,std::vector<double>&) const;
+    void get_masses_at(int, std::vector<double>&, const std::string="kilograms") const;
 
-    void get_masses_final(std::vector<double>&) const;
+    void get_masses_final(std::vector<double>&, const std::string="kilograms") const;
 
     /*!
      ** \brief - Function to return the IDs that correspond to the
@@ -398,22 +400,23 @@ protected:
     Origen::SP_TagManager b_tm;
     Origen::SP_Material b_mat;
     Origen::SP_NuclideSet b_nucset;
+    Origen::SP_Concentrations b_concs;
 //    Solver_cram b_slv;
     std::vector<std::string> b_lib_names;
     std::string b_lib_path;
     std::string b_interp_name;
     const double b_vol=1.;
-    std::vector<int> b_init_ids;
-    std::vector<double> b_init_concs;
-    std::vector<int> b_ids;
-    std::vector<double> b_concs;
+    //std::vector<int> b_init_ids;
+    //std::vector<double> b_init_concs;
+    //std::vector<int> b_ids;
+    //std::vector<double> b_concs;
     std::vector<double> b_burnups;
     std::vector<double> b_fluxes;
     std::vector<double> b_powers;
     std::vector<double> b_times;
-    Origen::ConcentrationUnit b_concs_units;
-    Origen::Time::UNITS b_time_units; // Default is seconds. Also accepts minutes,hours,days, and years.
-    Origen::Power::UNITS b_power_units; // Default is watts.
+    Origen::ConcentrationUnit b_concUnits = Origen::ConcentrationUnit::KILOGRAMS; 
+    Origen::Time::UNITS b_timeUnits = Origen::Time::DAYS; // Default is seconds. Also accepts minutes, hours, days, and years.
+    Origen::Power::UNITS b_powerUnits = Origen::Power::WATT; // Default is watts.
 };
 } // end namspace
 

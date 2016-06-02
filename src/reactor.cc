@@ -130,49 +130,47 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power)
                    std::bind1st(std::multiplies<double>(),mat->quantity()/massNorm*1000.0));
 
     for(auto mass : norm_mass) { std::cerr << "Normed mass: " << mass << std::endl; }
-    react.set_materials_with_masses(in_ids,norm_mass);
+    react.set_materials(in_ids,norm_mass);
     
     // Set depletion time
+    // SES: ASSUMING TIME IN MONTHS; NEED TO VALIDATE THIS
+    // SES: Also, need to make this a loop based on # of timesteps?
     std::vector<double> dp_time;
     dp_time.push_back(0.0);
     dp_time.push_back(cycle_length);
-    react.set_time_steps(dp_time);
-    react.set_time_units("months");
+    
+    //for(auto dt : dp_time) { std::cerr << "Pushing back time: " << dt << std::endl; }
+
+    react.set_time_steps(dp_time); 
+    react.set_time_units("years");
     
     // Set reactor power 
     std::vector<double> dp_pow;
     dp_pow.push_back(power);
-    react.set_powers(dp_pow);
-    
+    react.set_powers(dp_pow);  
+ 
     // Run Calculation
     react.solve();
 
     // Get materials and convert nuclide ids back to Cyclus format
     std::vector<int> org_id;
     react.get_ids_zzzaaai(org_id);
-    
-    //for(std::vector<int>::iterator i=org_id.begin(); i!=org_id.end(); i++){
-    //for(auto& orgZAID : org_id) {
-       //out_id.push_back(pyne::nucname::id(*i));
-       //std::cerr << "Output nuclide: " << orgZAID << std::endl;
-    //   out_id.push_back(pyne::nucname::id(orgZAID));
-    //}
-
+     
     std::for_each(org_id.begin(), org_id.end(), [](int &nucID){ pyne::nucname::id(nucID); });
-    
+   
     // Get mass data from ORIGEN
     std::vector<double> org_atom;
-    react.get_concentrations_final(org_atom);
+    //react.get_concentrations_final(org_atom);
+    react.get_masses_final(org_atom,"atoms ppm");
+
     cyclus::CompMap v;
     for(int j=0; j!=org_id.size(); ++j){
        // ***TEMPORARY*** suppression of small nuclide inventories to allow for testing
-       if(org_atom[j] > 1E-12) { v[org_id[j]] = org_atom[j];
-          std::cerr << "Setting v[" << org_id[j] << "] to: " << org_atom[j] << std::endl;
+       if(org_atom[j] > 1E-12) { v[org_id[j]] = org_atom[j]*1.E6;
+          std::cerr << "Setting v[" << org_id[j] << "] to: " << org_atom[j]*1.E6 << std::endl;
        }
     }
-    std::cerr << "Creating Cyclus composition" << std::endl;
     cyclus::Composition::Ptr comp_out = cyclus::Composition::CreateFromAtom(v);
-    std::cerr << "Calling mat->Transmute" << std::endl;
     mat->Transmute(comp_out);
 
     return mat;

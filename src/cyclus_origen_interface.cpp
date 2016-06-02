@@ -123,6 +123,7 @@ void cyclus2origen::get_id_tags(std::vector<std::string> &names, std::vector<std
   }
 }
 
+/*
 void cyclus2origen::set_materials_with_masses(std::vector<int> &ids, const std::vector<double> &masses){
   using cyclus::StateError;
   using cyclus::ValueError;
@@ -148,6 +149,7 @@ void cyclus2origen::set_materials_with_masses(std::vector<int> &ids, const std::
   }
   this->set_materials(ids,concs);
 }
+*/
 
 void cyclus2origen::set_materials(const std::vector<int> &ids, const std::vector<double> &concs){
   using cyclus::StateError;
@@ -181,33 +183,36 @@ void cyclus2origen::set_materials(const std::vector<int> &ids, const std::vector
   if(std::string::npos==b_interp_name.find(name)){
     name.append(b_interp_name);
   }
-  int id = 1001;
+
   std::vector<int> tmp_ids;
   tmp_ids.assign(ids.begin(),ids.end());
-  std::vector<double> tmp_concs;
-  tmp_concs.assign(concs.begin(),concs.end());
-  for(size_t i = 0; i < ids.size(); i++){
-    if(b_init_ids.size() <= i || b_init_ids.at(i)!=ids.at(i)){
-      b_init_ids.clear();
-      b_init_concs.clear();
-      for(size_t i = 0; i < tmp_ids.size(); i++){
-        if(ScaleData::Utils::is_valid_pizzzaaa(tmp_ids[i])) continue;
-        if(ScaleData::Utils::is_valid_zzzaaai(tmp_ids[i])) tmp_ids[i] = ScaleData::Utils::zzzaaai_to_pizzzaaa(tmp_ids[i]);
-        if(!ScaleData::Utils::is_valid_pizzzaaa(tmp_ids[i])){
-          std::stringstream ss;
-          ss << "Cyborg::reactor::set_materials(" << __LINE__ << ") : Unrecognizeable nuclide ID name! Use zzzaaai or pizzzaaa format." << std::endl;
-          throw ValueError(ss.str());
-        }
-      }
-      b_init_ids.assign(tmp_ids.begin(),tmp_ids.end());
-      b_init_concs.assign(tmp_concs.begin(),tmp_concs.end());
-      break;
-    }else if(b_init_concs.at(i)!=concs.at(i)){
-      b_init_concs.at(i)=concs.at(i);
-    }
+
+  for( auto &zaid : tmp_ids ) {     
+     if(ScaleData::Utils::is_valid_pizzzaaa(zaid)) continue;    
+
+     if(ScaleData::Utils::is_valid_zzzaaai(zaid)) zaid = ScaleData::Utils::zzzaaai_to_pizzzaaa(zaid);
+     if(!ScaleData::Utils::is_valid_pizzzaaa(zaid)){
+        std::stringstream ss;
+        ss << "Cyborg::reactor::set_materials(" << __LINE__ << ") : Unrecognizeable nuclide ID name! Use zzzaaai or pizzzaaa format." << std::endl;
+        throw ValueError(ss.str());
+     }
   }
+
+  // Group together nuclide IDs and masses under a concentrations object to handle unit conversions
+  // Replace any prior concentrations (if initialized)
+  b_nucset = std::make_shared<Origen::NuclideSet>(tmp_ids);
+  b_concs = std::make_shared<Origen::Concentrations>(b_concUnits);
+
+  //b_nucset.set_ids(tmp_ids);
+  b_concs->set_nuclide_set(*b_nucset);
+  b_concs->set_vals(concs);
+
+  int id = 1001;
   Origen::SP_Material mat = Origen::SP_Material(new Origen::Material(b_lib,name,id,b_vol));
-  mat->set_numden_bos(tmp_concs,tmp_ids,b_vol);
+  //mat->set_numden_bos(tmp_concs,tmp_ids,b_vol);
+  mat->set_concs_at(*b_concs,0);
+  std::cerr << "Material::initial_mass() = " << mat->initial_mass() << std::endl;
+  std::cerr << "Material::initial_hm_mass() = " << mat->initial_hm_mass() << std::endl;
   b_mat = mat;
 }
 
@@ -216,11 +221,11 @@ void cyclus2origen::delete_material(){
 }
 
 void cyclus2origen::set_mat_units(const std::string mat_units){
-  b_concs_units = Origen::convertStringToConcUnit(mat_units);
+  b_concUnits = Origen::convertStringToConcUnit(mat_units);
 }
 
 void cyclus2origen::set_time_units(const char* time_units){
-  b_time_units = Origen::Time::units(time_units);
+  b_timeUnits = Origen::Time::units(time_units);
 }
 
 void cyclus2origen::add_time_step(const double time){
@@ -460,14 +465,16 @@ void cyclus2origen::solve(){
        << "Fluxes vector size is " << b_fluxes.size() << " and times vector size is " << b_times.size() << "." << std::endl;
     throw ValueError(ss.str());
   }
+
   prob_spec_lib(b_lib,b_times,b_fluxes,b_powers);
-  set_materials(b_init_ids,b_init_concs);
+  //set_materials(b_init_ids,b_init_concs);
   Origen::SP_Solver solver;
   ScaleUtils::IO::DB db;
   db.set<std::string>("solver","cram");
   solver = Origen::SolverSelector::get_solver(db);
   b_mat->set_solver(solver);
   size_t num_steps = b_powers.size()>b_fluxes.size() ? b_powers.size() : b_fluxes.size();
+
   for(size_t i = 0; i < num_steps; i++){
     b_mat->add_step(b_times[i+1]-b_times[i]);
     b_mat->set_transition_matrix(b_mat->library()->newsp_transition_matrix_at(i));
@@ -534,95 +541,39 @@ void cyclus2origen::solve(std::vector<double>& times, std::vector<double>& fluxe
   }
 }
 
-void cyclus2origen::get_concentrations(std::vector<std::vector<double>> &concs_out) const{
-  for(size_t i = 0; i < b_mat->ntimes(); i++){
-    Origen::SP_DoubleList vals = b_mat->amount_at(i);
-    std::vector<double> vals_vec;
-    for(size_t j = 0; j < vals->size(); j++){
-      vals_vec.push_back(vals->at(j));
-    }
-    concs_out.push_back(vals_vec);
+void cyclus2origen::get_masses(std::vector<std::vector<double> > &masses_out, const std::string units) const{
+
+  masses_out.clear();
+  masses_out.resize(b_times.size());
+
+  for(size_t i=0; i < b_times.size(); ++i) {
+     this->get_masses_at(i,masses_out[i], units);
   }
 }
 
-void cyclus2origen::get_concentrations_at(int p, std::vector<double> &concs_out) const{
-  using cyclus::ValueError;
-  if(p<0 || p>=b_mat->ntimes()){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::get_concentrations_at(" << __LINE__ << ") : Step requested " << p << " falls outside the bounds [0," << b_mat->ntimes() << "]!" << std::endl;
-    throw ValueError(ss.str());
-  }
-  Origen::SP_DoubleList vals = b_mat->amount_at(p);
-  for(size_t i = 0; i < vals->size(); i++){
-    concs_out.push_back(vals->at(i));
-  }
+void cyclus2origen::get_masses_at(int p, std::vector<double> &masses_out, const std::string units) const{
+   using cyclus::ValueError;
+
+   if( p < 0 || p >= b_mat->ntimes() ){
+     std::stringstream ss;
+     ss << "Cyborg::reactor::get_concentrations_at(" << __LINE__ << ") : Step requested " << p << " falls outside the bounds [0," << b_mat->ntimes() << "]!" << std::endl;
+     throw ValueError(ss.str());
+   }
+
+   Origen::ConcentrationUnit concUnits = Origen::convertStringToConcUnit(units);
+   Origen::SP_NuclideSet tmpNucSet = std::make_shared<Origen::NuclideSet>(*(b_mat->sizzzaaa_list()));
+   Origen::SP_Concentrations tmpConcs = std::make_shared<Origen::Concentrations>(concUnits);
+   tmpConcs->set_nuclide_set(*tmpNucSet);
+
+   masses_out.clear();
+   b_mat->get_concs_at(tmpConcs.get(), p);
+   tmpConcs->set_units(concUnits);   
+   tmpConcs->get_vals(masses_out); 
+  
 }
 
-void cyclus2origen::get_concentrations_final(std::vector<double> &concs_out) const{
-  Origen::SP_DoubleList vals = b_mat->amount_at(b_mat->ntimes()-1);
-  for(size_t i = 0; i < vals->size(); i++){
-    concs_out.push_back(vals->at(i));
-  }
-}
-
-void cyclus2origen::get_masses(std::vector<std::vector<double> > &masses_out) const{
-  using cyclus::ValueError;
-  if(!masses_out.empty()){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::get_masses(" << __LINE__ << ") : Return vector for masses is not empty upon function call!" << std::endl;
-    throw ValueError(ss.str());
-  }
-  std::vector<std::vector<double> > concs;
-  this->get_concentrations(concs);
-  std::vector<int> ids;
-  this->get_ids(ids);
-  if(ids.size()!=concs[0].size()){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::get_masses(" << __LINE__ << ") : Size mismatch between returned ID vector size and returned concentrations vector size!" << std::endl;
-    throw ValueError(ss.str());
-  }
-  Origen::ConcentrationConverter cv;
-  for(size_t i = 0; i < concs.size(); i++){
-    std::vector<double> tmp;
-    for(size_t j = 0; j < concs[0].size(); j++){
-      tmp.push_back(cv.convert_to(Origen::ConcentrationUnit::KILOGRAMS,ids[j],Origen::ConcentrationUnit::CM_2_BARN,concs[i][j],b_vol));
-    }
-    masses_out.push_back(tmp);
-  }
-}
-
-void cyclus2origen::get_masses_at(int p, std::vector<double> &masses_out) const{
-  using cyclus::ValueError;
-  if(!masses_out.empty()){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::get_masses_at(" << __LINE__ << ") : Masses return vector is not empty upon function call!" << std::endl;
-    throw ValueError(ss.str());
-  }
-  std::vector<double> concs;
-  this->get_concentrations_at(p,concs);
-  std::vector<int> ids;
-  this->get_ids(ids);
-  Origen::ConcentrationConverter cv;
-  for(size_t i = 0; i < concs.size(); i++){
-    masses_out.push_back(cv.convert_to(Origen::ConcentrationUnit::KILOGRAMS,ids[i],Origen::ConcentrationUnit::CM_2_BARN,concs[i],b_vol));
-  }
-}
-
-void cyclus2origen::get_masses_final(std::vector<double> &masses_out) const{
-  using cyclus::ValueError;
-  if(!masses_out.empty()){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::get_masses_final(" << __LINE__ << ") : Masses return vector is not empty upon function call!" << std::endl;
-    throw ValueError(ss.str());
-  }
-  std::vector<double> concs;
-  this->get_concentrations_final(concs);
-  std::vector<int> ids;
-  this->get_ids(ids);
-  Origen::ConcentrationConverter cv;
-  for(size_t i = 0; i < concs.size(); i++){
-    masses_out.push_back(cv.convert_to(Origen::ConcentrationUnit::KILOGRAMS,ids[i],Origen::ConcentrationUnit::CM_2_BARN,concs[i],b_vol));
-  }
+void cyclus2origen::get_masses_final(std::vector<double> &masses_out, const std::string units) const{
+  this->get_masses_at(b_mat->ntimes()-1, masses_out, units);
 }
 
 void cyclus2origen::get_ids(std::vector<int> &ids_out) const{
@@ -636,8 +587,8 @@ void cyclus2origen::get_ids_zzzaaai(std::vector<int> &ids_out) const{
 }
 
 void cyclus2origen::prob_spec_lib(Origen::SP_Library lib,std::vector<double> &times,std::vector<double> &fluxes,std::vector<double> &powers){
-  if(b_time_units!=Origen::Time::DAYS){
-    for(auto& time : times) time /= Origen::Time::factor(b_time_units,Origen::Time::DAYS);
+  if(b_timeUnits!=Origen::Time::DAYS){
+    for(auto& time : times) time /= Origen::Time::factor(b_timeUnits,Origen::Time::DAYS);
   }
   if(fluxes.size()>0&&powers.size()==0){
     for(auto& flux : fluxes) powers.push_back(flux*b_mat->power_factor_bos());
