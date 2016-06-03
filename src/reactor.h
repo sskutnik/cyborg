@@ -111,18 +111,22 @@ class reactor : public cyclus::Facility,
                       "uilabel":"Fuel Capacity"}
   double fuel_capacity;
 
-  #pragma cyclus var {"tooltip":"Cycle length",\
+  #pragma cyclus var {'default':12,\
+                      "tooltip":"Cycle length",\
                       "doc":"Time to complete an entire cycle",\
                       "uilabel":"Cycle Length",\
                       "units":"time steps"}
-  int cycle_length;
+  int cycle_length; // default to 12-month cycle
+  
 
-  #pragma cyclus var {"tooltip":"Capacity factor",\
-                      "doc":"Reactor capacity factor",\
+  #pragma cyclus var {'default': 0.90,\
+                      "tooltip":"Capacity factor (%)",\
+                      "doc":"Reactor capacity factor; governs downtime between cycles",\
                       "uilabel":"Capacity Factor"}
-  double cap_factor; 
+  double cap_factor; // default to 90% capacity factor
 
-  #pragma cyclus var {"tooltip":"Reactor lifetime",\
+  #pragma cyclus var {'default': 480,\
+                      "tooltip":"Reactor lifetime",\
                       "doc":"Reactor lifetime",\
                       "uilabel":"Reactor Lifetime",\
                       "units":"time steps"}

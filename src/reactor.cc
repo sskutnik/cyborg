@@ -26,8 +26,8 @@ void reactor::EnterNotify(){
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void reactor::Tick() {
     if (!decom) {
-        fuel.capacity(fuel_capacity*1000);
-        fresh_inventory.capacity(fuel.space()*1000);
+        fuel.capacity(fuel_capacity*1000); // store fuel capacity in kg
+        fresh_inventory.capacity(fuel.space()*1000); // store inventory in kg
     }
     else if (decom) {
         fresh_inventory.capacity(0);
@@ -65,11 +65,11 @@ void reactor::Load_() {
 void reactor::Discharge_(double core_fraction) {
     // Pop 1/3 of core from fuel buffer (except on retiring time step)
     cyclus::Material::Ptr to_burn = fuel.Pop(fuel.capacity()/core_fraction);
-
     std::cerr << "Calling deplete..." << std::endl;
     // Transmute material ready for discharge
     // Assume even power between cycles (for now)
-    double cyclePower = power_cap*core_fraction*1E6; // power in W
+    double cyclePower = power_cap/core_fraction*1E6; // convert power from MWt => W
+    std::cerr << "cyclePower (W): " << cyclePower << "  power_cap (MWt): " << power_cap << "  core_fraction: " << core_fraction << std::endl;
     to_burn = Deplete_(to_burn, cyclePower);
     std::cerr << "Finished deplete." << std::endl;
 
@@ -127,9 +127,10 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power)
     // Convert each isotopic mass to absolute isotopic mass in kg (from unnormalized mass fraction)
     double massNorm = std::accumulate(mass_fraction.begin(),mass_fraction.end(), 0.0);    
     std::transform(mass_fraction.begin(), mass_fraction.end(), norm_mass.begin(), 
-                   std::bind1st(std::multiplies<double>(),mat->quantity()/massNorm*1000));
+                   std::bind1st(std::multiplies<double>(),mat->quantity()/massNorm));
 
-    for(auto mass : norm_mass) { std::cerr << "Normed mass: " << mass/(mat->quantity()*1000) << std::endl; }
+    //for(auto mass : norm_mass) { std::cerr << "Normed mass: " << mass/(mat->quantity()*1000) << std::endl; }
+    for(auto mass : norm_mass) { std::cerr << "Normed mass: " << mass/(mat->quantity()) <<  std::endl; }
     react.set_materials(in_ids,norm_mass);
     
     // Set depletion time & power
@@ -140,9 +141,10 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power)
     for(size_t i=1; i <= round(this->fuel_capacity*1.E3/mat->quantity()); ++i) {
        // Cycle timestep is in months; use years for ORIGEN for simplicity
        dp_time.push_back(cycle_length*i*1.0/12.0);
-
        // SES TODO: Eventually handle non-uniform cycle powers
        dp_pow.push_back(power);
+
+       //std::cerr << "Pushing back time: " << cycle_length*i*1.0/12.0 << "  power: " << power << std::endl;
        // SES TODO: Add inter-cycle decay
     }
     react.set_time_steps(dp_time); 
