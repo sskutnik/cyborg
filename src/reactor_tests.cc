@@ -21,19 +21,19 @@ void reactorTest::InitParameters(){
   in_r1 = "in_r1";
   in_c1 = "in_c1";
   out_c1 = "out_c1";
-  power_cap = 100.0; // MWt
+  power_cap = 500.0; // MWt
   fuel_capacity = 20.0E3; // kg
-  cycle_length = 1;
+  cycle_length = 12; // months
   cap_factor = 0.9;
-  reactor_lifetime = 10;
+  reactor_lifetime = 480;
   enrichment = 4.0;
   mod_density = 0.0; // Setting to 0 to test auto-interpolation of density
 
   cyclus::CompMap v;
   v[922350000] = (enrichment/100.0);
   v[922380000] = (100.0 - enrichment)/100.0;
-  v[80160000]  = 2.0;
-  cyclus::Composition::Ptr recipe = cyclus::Composition::CreateFromAtom(v);
+  //v[80160000]  = 2.0;
+  cyclus::Composition::Ptr recipe = cyclus::Composition::CreateFromMass(v);
   tc_.get()->AddRecipe(in_r1, recipe);
 }
 
@@ -53,7 +53,7 @@ void reactorTest::SetUpReactor(){
    
   // Create an input material buffer of fresh fuel (100 MTU)
   cyclus::Composition::Ptr rec = tc_.get()->GetRecipe(in_r1);
-  cyclus::Material::Ptr recmat = cyclus::Material::CreateUntracked(src_facility_->fuel.space()*5.0, rec);
+  cyclus::Material::Ptr recmat = cyclus::Material::CreateUntracked(src_facility_->fuel.space()*5.0*1000, rec);
   src_facility_->fresh_inventory.Push(recmat); 
 }
 
@@ -68,7 +68,6 @@ void reactorTest::TestInitState(cyborg::reactor* fac){
   EXPECT_EQ(reactor_lifetime, fac->reactor_lifetime);
   EXPECT_EQ(enrichment, fac->enrichment);
   EXPECT_EQ(mod_density, fac->mod_density);
-  std::cerr << "TEST: fac->mod_density = " << fac->mod_density << std::endl;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -90,7 +89,7 @@ TEST_F(reactorTest, Tick) {
 }
 
 //\TODO Add a TickDecom test
-
+// TODO Add a TockNoDepletion test, modify this to TockDepletion
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 TEST_F(reactorTest, Tock) {
   src_facility_->fuel.capacity(src_facility_->fuel_capacity*1000);
@@ -98,8 +97,9 @@ TEST_F(reactorTest, Tock) {
 
   //std::cerr << "Reactor assembly type: " << src_facility_->assembly_type << std::endl;
   //std::cerr << "Tock: moderator density = " << src_facility_->mod_density << std::endl;
-  std::cerr << "lib data path: " << src_facility_->lib_path << std::endl; 
-  
+  //std::cerr << "lib data path: " << src_facility_->lib_path << std::endl; 
+ 
+/*
   try{ src_facility_->Tock(); }
   catch( std::exception& ex) {
     std::cerr << "Exception thrown: " << ex.what() << std::endl;
@@ -107,8 +107,14 @@ TEST_F(reactorTest, Tock) {
   catch( ... ) {
     std::cerr << "Unknown exception thrown!" << std::endl;
   }  
+*/
 
-  EXPECT_NO_THROW(src_facility_->Tock());
+  // Test for one step before, during, and after a depletion step
+  src_facility_->reactor_time = src_facility_->cycle_length - 1; 
+  EXPECT_NO_THROW(src_facility_->Tock()); // no depletion
+  EXPECT_NO_THROW(src_facility_->Tock()); // depletion
+  EXPECT_NO_THROW(src_facility_->Tock()); // no depletion
+
   // Test reactor specific behaviors of the Tock function here
 }
 } // namespace reactor

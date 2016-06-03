@@ -177,7 +177,7 @@ public:
      ** \param - Vector of values for the time the materials will be
      **          exposed to the specified fluxes/burned/decayed.
      */
-    void set_time_steps(const std::vector<double>& times){b_times=times;};
+    void set_time_steps(const std::vector<double>& times){ b_times=times; }
 
     /*!
      ** \brief - Function to add an additional time step to the calculation.
@@ -196,6 +196,14 @@ public:
      **          'days','years').
      */
     void set_time_units(const char* time_units);
+
+    /*!
+     ** \brief - Function to specify the power unit used for depletion.
+     ** \param - String declaring the units for the power values.
+     **          Accepts full words in all lower case (i.e. - 'watt',
+     **          '').
+     */
+    void set_power_units(const char* power_units);
 
 private:
     /*!
@@ -416,7 +424,7 @@ protected:
     std::vector<double> b_times;
     Origen::ConcentrationUnit b_concUnits = Origen::ConcentrationUnit::KILOGRAMS; 
     Origen::Time::UNITS b_timeUnits = Origen::Time::DAYS; // Default is seconds. Also accepts minutes, hours, days, and years.
-    Origen::Power::UNITS b_powerUnits = Origen::Power::WATT; // Default is watts.
+    Origen::Power::UNITS b_powerUnits = Origen::Power::WATT; // Default is watts. Also accepts ev__s
 };
 } // end namspace
 

@@ -1,4 +1,5 @@
 #include "cyclus_origen_interface.h"
+#include <math.h>
 #include "error.h"
 #include "Origen/Core/dc/ConcentrationConverter.h"
 #include "Origen/Core/fn/io.h"
@@ -228,14 +229,18 @@ void cyclus2origen::set_time_units(const char* time_units){
   b_timeUnits = Origen::Time::units(time_units);
 }
 
+void cyclus2origen::set_power_units(const char* power_units){
+  b_powerUnits = Origen::Power::units(power_units);
+}
+
 void cyclus2origen::add_time_step(const double time){
-  using cyclus::StateError;
-  if(time<0){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::add_time_step(" << __LINE__ << ") : Time value provided is non-physical (<0)!" << std::endl;
-    throw StateError(ss.str());
-  }
-  b_times.push_back(time);
+   using cyclus::StateError;
+   if(time<0){
+      std::stringstream ss;
+      ss << "Cyborg::reactor::add_time_step(" << __LINE__ << ") : Time value provided is non-physical (<0)!" << std::endl;
+      throw StateError(ss.str());
+   }
+   b_times.push_back(time);
 }
 
 void cyclus2origen::set_fluxes(const std::vector<double> &fluxes){
@@ -259,7 +264,7 @@ void cyclus2origen::add_flux(const double flux){
 }
 
 void cyclus2origen::delete_fluxes(){
-  if(b_fluxes.size()>0) b_fluxes.clear();
+   b_fluxes.clear();
 }
 
 void cyclus2origen::set_powers(const std::vector<double> &powers){
@@ -283,7 +288,7 @@ void cyclus2origen::add_power(const double power){
 }
 
 void cyclus2origen::delete_powers(){
-  if(b_powers.size()>0) b_powers.clear();
+   b_powers.clear();
 }
 
 void cyclus2origen::add_parameter(const std::string name, const double value){
@@ -435,60 +440,65 @@ void cyclus2origen::interpolate() {
   b_interp_name = (b_lib->scp_tag_manager())->getIdTag("Filename");
 }
 
-void cyclus2origen::solve(){
-  using cyclus::StateError;
-  using cyclus::ValueError;
-  if(b_mat==NULL){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::solve(" << __LINE__ << ") : No material object found on this interface object!  Use set_materials() or set_materials_with_masses()." << std::endl;
-    throw StateError(ss.str());
-  }
-  if(b_mat->library()==NULL){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::solve(" << __LINE__ << ") : No library object found on the material object on this interface object.!" << std::endl;
-    throw StateError(ss.str());
-  }
-  if(b_powers.size()==0 && b_fluxes.size()==0){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::solve(" << __LINE__ << ") : No powers or fluxes found on this interface object!  Use set_fluxes or set_powers." << std::endl;
-    throw StateError(ss.str());
-  }
-  if(b_powers.size()!=(b_times.size()-1) && b_powers.size()!=0){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::solve(" << __LINE__ << ") : Powers vector must be exactly 1 element shorter than times vector!" << std::endl \
-       << "Power vector size is " << b_powers.size() << " and times vector size is " << b_times.size() << "." << std::endl;
-    throw ValueError(ss.str());
-  }
-  if(b_fluxes.size()!=(b_times.size()-1) && b_fluxes.size()!=0){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::solve(" << __LINE__ << ") : Fluxes vector must be exactly 1 element shorter than times vector!" << std::endl \
-       << "Fluxes vector size is " << b_fluxes.size() << " and times vector size is " << b_times.size() << "." << std::endl;
-    throw ValueError(ss.str());
-  }
+void cyclus2origen::solve() {
+   using cyclus::StateError;
+   using cyclus::ValueError;
+   if(b_mat==NULL){
+      std::stringstream ss;
+      ss << "Cyborg::reactor::solve(" << __LINE__ << ") : No material object found on this interface object!  Use set_materials() or set_materials_with_masses()." << std::endl;
+      throw StateError(ss.str());
+   }
+   if(b_mat->library()==NULL) {
+      std::stringstream ss;
+      ss << "Cyborg::reactor::solve(" << __LINE__ << ") : No library object found on the material object on this interface object.!" << std::endl;
+      throw StateError(ss.str());
+   }
+   if(b_powers.size()==0 && b_fluxes.size()==0) {
+      std::stringstream ss;
+      ss << "Cyborg::reactor::solve(" << __LINE__ << ") : No powers or fluxes found on this interface object!  Use set_fluxes or set_powers." << std::endl;
+      throw StateError(ss.str());
+   }
+   if(b_powers.size()!=(b_times.size()-1) && b_powers.size()!=0) {
+      std::stringstream ss;
+      ss << "Cyborg::reactor::solve(" << __LINE__ << ") : Powers vector must be exactly 1 element shorter than times vector!" << std::endl \
+         << "Power vector size is " << b_powers.size() << " and times vector size is " << b_times.size() << "." << std::endl;
+      throw ValueError(ss.str());
+   }
+   if(b_fluxes.size()!=(b_times.size()-1) && b_fluxes.size()!=0){
+      std::stringstream ss;
+      ss << "Cyborg::reactor::solve(" << __LINE__ << ") : Fluxes vector must be exactly 1 element shorter than times vector!" << std::endl \
+         << "Fluxes vector size is " << b_fluxes.size() << " and times vector size is " << b_times.size() << "." << std::endl;
+      throw ValueError(ss.str());
+   }
 
-  prob_spec_lib(b_lib,b_times,b_fluxes,b_powers);
-  //set_materials(b_init_ids,b_init_concs);
-  Origen::SP_Solver solver;
-  ScaleUtils::IO::DB db;
-  db.set<std::string>("solver","cram");
-  solver = Origen::SolverSelector::get_solver(db);
-  b_mat->set_solver(solver);
-  size_t num_steps = b_powers.size()>b_fluxes.size() ? b_powers.size() : b_fluxes.size();
+   prob_spec_lib(b_lib,b_times,b_fluxes,b_powers);
+   //set_materials(b_init_ids,b_init_concs);
+   Origen::SP_Solver solver;
+   ScaleUtils::IO::DB db;
+   db.set<std::string>("solver","cram");
+   solver = Origen::SolverSelector::get_solver(db);
+   b_mat->set_solver(solver);
+   size_t num_steps = b_powers.size()>b_fluxes.size() ? b_powers.size() : b_fluxes.size();
+ 
+   std::vector<double> dt_rel(2, 0.5);
+   for(size_t i = 0; i < num_steps; i++) {
+      b_mat->add_step((b_times[i+1]-b_times[i]) * Origen::Time::factor<Origen::Time::SECONDS>( this->b_timeUnits));
+      b_mat->set_transition_matrix(b_mat->library()->newsp_transition_matrix_at(i));
 
-  for(size_t i = 0; i < num_steps; i++){
-    b_mat->add_step(b_times[i+1]-b_times[i]);
-    b_mat->set_transition_matrix(b_mat->library()->newsp_transition_matrix_at(i));
-    if(b_fluxes.size()==0){
-      b_mat->set_flux(b_powers[i]/b_mat->power_factor_bos());
-    }else if(b_powers.size()==0){
-      b_mat->set_flux(b_fluxes[i]);
-    }
-    solver->set_transition_matrix( &*b_mat->transition_matrix() );
-    Origen::SP_Vec_Dbl n0 = b_mat->amount_bos();
-    Origen::SP_Vec_Dbl n1 = b_mat->amount_eos();
-    solver->solve(*n0,b_mat->flux(),b_mat->dt(),&*n1);
-    solver->clear();
-  }
+      if(b_fluxes.size()==0) {
+         //b_mat->set_power(b_powers[i]);
+         b_mat->set_flux(b_powers[i]/b_mat->power_factor_bos());
+         //std::cerr << "Setting flux to: " << b_powers[i]/b_mat->power_factor_bos() << std::endl;  
+      } else if(b_powers.size()==0) {
+         b_mat->set_flux(b_fluxes[i]);
+      }
+
+      Origen::SP_Vec_Dbl n0 = b_mat->amount_bos();
+      Origen::SP_Vec_Dbl n1 = b_mat->amount_eos();
+      solver->set_transition_matrix( &*b_mat->transition_matrix() );
+      solver->solve(*n0,b_mat->flux(),b_mat->dt(),&*n1);
+      solver->clear();
+   }
 }
 
 void cyclus2origen::solve(std::vector<double>& times, std::vector<double>& fluxes, std::vector<double>& powers){
@@ -561,15 +571,16 @@ void cyclus2origen::get_masses_at(int p, std::vector<double> &masses_out, const 
    }
 
    Origen::ConcentrationUnit concUnits = Origen::convertStringToConcUnit(units);
+
    Origen::SP_NuclideSet tmpNucSet = std::make_shared<Origen::NuclideSet>(*(b_mat->sizzzaaa_list()));
    Origen::SP_Concentrations tmpConcs = std::make_shared<Origen::Concentrations>(concUnits);
    tmpConcs->set_nuclide_set(*tmpNucSet);
 
    masses_out.clear();
    b_mat->get_concs_at(tmpConcs.get(), p);
+ 
    tmpConcs->set_units(concUnits);   
    tmpConcs->get_vals(masses_out); 
-  
 }
 
 void cyclus2origen::get_masses_final(std::vector<double> &masses_out, const std::string units) const{
@@ -586,39 +597,39 @@ void cyclus2origen::get_ids_zzzaaai(std::vector<int> &ids_out) const{
   }
 }
 
-void cyclus2origen::prob_spec_lib(Origen::SP_Library lib,std::vector<double> &times,std::vector<double> &fluxes,std::vector<double> &powers){
-  if(b_timeUnits!=Origen::Time::DAYS){
-    for(auto& time : times) time /= Origen::Time::factor(b_timeUnits,Origen::Time::DAYS);
-  }
-  if(fluxes.size()>0&&powers.size()==0){
-    for(auto& flux : fluxes) powers.push_back(flux*b_mat->power_factor_bos());
-  } else if(fluxes.size()>0&&powers.size()>0){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Both the fluxes and powers vectors have values! Choose one!" << std::endl;
-    throw cyclus::ValueError(ss.str());
-  }
+void cyclus2origen::prob_spec_lib(Origen::SP_Library lib,std::vector<double> &times,std::vector<double> &fluxes,std::vector<double> &powers) {
+   if(b_timeUnits!=Origen::Time::DAYS){
+      for(auto& time : times) time *= Origen::Time::factor(Origen::Time::DAYS, b_timeUnits);
+   }
+   if(fluxes.size()>0&&powers.size()==0) {
+      for(auto& flux : fluxes) powers.push_back(flux*b_mat->power_factor_bos());
+   } else if(fluxes.size()>0&&powers.size()>0) {
+      std::stringstream ss;
+      ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Both the fluxes and powers vectors have values! Choose one!" << std::endl;
+      throw cyclus::ValueError(ss.str());
+   }
 
-  if(times.size()!=powers.size()+1){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Powers or fluxes vectors not exactly 1 element shorter than times vector!" << std::endl \
-       << "Powers or fluxes vector has " << powers.size() << " elements and times vector has " << times.size() << " elements." << std::endl;
-    throw cyclus::ValueError(ss.str());
-  }
+   if(times.size()!=powers.size()+1){
+      std::stringstream ss;
+      ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Powers or fluxes vectors not exactly 1 element shorter than times vector!" << std::endl \
+         << "Powers or fluxes vector has " << powers.size() << " elements and times vector has " << times.size() << " elements." << std::endl;
+      throw cyclus::ValueError(ss.str());
+   }
 
-  std::vector<double> burnups;
-  for(size_t i = 0; i < powers.size(); i++){
-    // 1e3 factor arises from converting powers from watts to megawatts and mass from g to MT.
-    burnups.push_back(1.0e3*powers[i]*(times[i+1]-times[i])/b_mat->initial_hm_mass());
-    std::stringstream ss;
-    ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Burnups(" << i << ") = " << burnups[i] << std::endl;
-  }
-  if(burnups.size()!=powers.size()){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Calculated burnup vector does not have same size as provided powers vector!" << std::endl;
-    throw cyclus::StateError(ss.str());
-  }
+   std::vector<double> burnups;
+   for(size_t i = 0; i < powers.size(); i++){
+      // 1e3 factor arises from converting powers from watts to megawatts and mass from g to MT.
+      burnups.push_back(1.0e3*powers[i]*(times[i+1]-times[i])/b_mat->initial_hm_mass());
+      std::stringstream ss;
+      ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Burnups(" << i << ") = " << burnups[i] << std::endl;
+   }
+   if(burnups.size()!=powers.size()){
+      std::stringstream ss;
+      ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Calculated burnup vector does not have same size as provided powers vector!" << std::endl;
+      throw cyclus::StateError(ss.str());
+   }
 
-  b_lib = lib->interpolate_Interp1D(burnups);
+   b_lib = lib->interpolate_Interp1D(burnups);
 }
 
 }//namespace

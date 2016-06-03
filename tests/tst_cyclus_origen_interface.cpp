@@ -240,6 +240,7 @@ TEST_F(OrigenInterfaceTester,powerTest){
 }
 
 TEST_F(OrigenInterfaceTester,solveTest){
+
   EXPECT_THROW(tester.solve(),cyclus::StateError);
   id_tags.erase("Something");
   params.erase("Fuel Temperature");
@@ -264,14 +265,15 @@ TEST_F(OrigenInterfaceTester,solveTest){
   tester.set_powers(powers);
   tester.solve();
 
-  tester.interpolate();
 /*
   ids[0]=922350;
   ids[1]=922380;
   tester.set_materials_with_masses(ids,masses);
 */
+  tester.set_powers(powers);
   tester.add_time_step(500);
   tester.add_power(5.e7);
+  tester.interpolate();
   tester.solve();
 }
 

@@ -27,7 +27,7 @@ void reactor::EnterNotify(){
 void reactor::Tick() {
     if (!decom) {
         fuel.capacity(fuel_capacity*1000);
-        fresh_inventory.capacity(fuel.space());
+        fresh_inventory.capacity(fuel.space()*1000);
     }
     else if (decom) {
         fresh_inventory.capacity(0);
@@ -41,6 +41,7 @@ void reactor::Tock() {
         // Load Fuel
         Load_();
         // Transmute & Discharge if necessary
+
         if (reactor_time % cycle_length == 0 && reactor_time != reactor_lifetime) {
             Discharge_(3.0);
         }
@@ -56,7 +57,6 @@ void reactor::Tock() {
 void reactor::Load_() {
     if (fuel.space() > 0){
         // Push material to fuel buffer from fresh inventory
-        //fuel.Push(fresh_inventory.Pop(fresh_inventory.quantity()));
         double toLoad = std::min(fuel.space(),fresh_inventory.quantity());
         fuel.Push(fresh_inventory.Pop( toLoad ));
     }
@@ -69,7 +69,7 @@ void reactor::Discharge_(double core_fraction) {
     std::cerr << "Calling deplete..." << std::endl;
     // Transmute material ready for discharge
     // Assume even power between cycles (for now)
-    double cyclePower = power_cap*core_fraction;
+    double cyclePower = power_cap*core_fraction*1E6; // power in W
     to_burn = Deplete_(to_burn, cyclePower);
     std::cerr << "Finished deplete." << std::endl;
 
@@ -99,10 +99,10 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power)
           << this->enrichment << std::endl; 
        throw cyclus::ValueError(ss.str());
     }
-    std::cerr << "Enrichent = " << this->enrichment << std::endl; 
+    //std::cerr << "Enrichent = " << this->enrichment << std::endl; 
     react.add_parameter("Enrichment",enrichment);
    
-    std::cerr << "Moderator Density = " << this->mod_density << std::endl;
+    //std::cerr << "Moderator Density = " << this->mod_density << std::endl;
     if(this->mod_density > 0.0) react.add_parameter("Moderator Density",this->mod_density);   
 
     // Create cross-section library
@@ -124,30 +124,32 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power)
     // normalize mass fractions
     std::vector<double> norm_mass(mass_fraction.size());
 
-    // Convert each isotopic mass to absolute isotopic mass in grams (from unnormalized mass fraction)
+    // Convert each isotopic mass to absolute isotopic mass in kg (from unnormalized mass fraction)
     double massNorm = std::accumulate(mass_fraction.begin(),mass_fraction.end(), 0.0);    
     std::transform(mass_fraction.begin(), mass_fraction.end(), norm_mass.begin(), 
-                   std::bind1st(std::multiplies<double>(),mat->quantity()/massNorm*1000.0));
+                   std::bind1st(std::multiplies<double>(),mat->quantity()/massNorm*1000));
 
-    for(auto mass : norm_mass) { std::cerr << "Normed mass: " << mass << std::endl; }
+    for(auto mass : norm_mass) { std::cerr << "Normed mass: " << mass/(mat->quantity()*1000) << std::endl; }
     react.set_materials(in_ids,norm_mass);
     
-    // Set depletion time
-    // SES: ASSUMING TIME IN MONTHS; NEED TO VALIDATE THIS
-    // SES: Also, need to make this a loop based on # of timesteps?
-    std::vector<double> dp_time;
+    // Set depletion time & power
+    std::vector<double> dp_time, dp_pow;
     dp_time.push_back(0.0);
-    dp_time.push_back(cycle_length);
-    
-    //for(auto dt : dp_time) { std::cerr << "Pushing back time: " << dt << std::endl; }
+    // Number of cycles is assumed to be proportional to core fraction per batch
+    // i.e., 1/3 fraction => 3 cycles
+    for(size_t i=1; i <= round(this->fuel_capacity*1.E3/mat->quantity()); ++i) {
+       // Cycle timestep is in months; use years for ORIGEN for simplicity
+       dp_time.push_back(cycle_length*i*1.0/12.0);
 
+       // SES TODO: Eventually handle non-uniform cycle powers
+       dp_pow.push_back(power);
+       // SES TODO: Add inter-cycle decay
+    }
     react.set_time_steps(dp_time); 
-    react.set_time_units("years");
+    react.set_time_units("y");
     
-    // Set reactor power 
-    std::vector<double> dp_pow;
-    dp_pow.push_back(power);
     react.set_powers(dp_pow);  
+    react.set_power_units("watt");
  
     // Run Calculation
     react.solve();
@@ -161,13 +163,19 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power)
     // Get mass data from ORIGEN
     std::vector<double> org_atom;
     //react.get_concentrations_final(org_atom);
-    react.get_masses_final(org_atom,"atoms ppm");
+    //react.get_masses_final(org_atom,"atoms_ppm");
+    react.get_masses_final(org_atom,"GATOMS");
 
+    // Normalize to atom fractions
+    double atomNorm = std::accumulate(org_atom.begin(),org_atom.end(), 0.0);    
+    std::transform(org_atom.begin(), org_atom.end(), org_atom.begin(), 
+                   std::bind1st(std::multiplies<double>(),1.0/atomNorm));
+    
     cyclus::CompMap v;
-    for(int j=0; j!=org_id.size(); ++j){
-       // ***TEMPORARY*** suppression of small nuclide inventories to allow for testing
-       if(org_atom[j] > 1E-12) { v[org_id[j]] = org_atom[j]*1.E6;
-          std::cerr << "Setting v[" << org_id[j] << "] to: " << org_atom[j]*1.E6 << std::endl;
+    for(int j=0; j!=org_id.size(); ++j){       
+       if(org_atom[j] > 0.) { 
+          v[org_id[j]] = org_atom[j];
+          if(org_atom[j] > 1.E-3) std::cerr << "Setting v[" << org_id[j] << "] to: " << org_atom[j] << std::endl;
        }
     }
     cyclus::Composition::Ptr comp_out = cyclus::Composition::CreateFromAtom(v);
