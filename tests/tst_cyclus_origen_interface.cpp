@@ -168,7 +168,8 @@ TEST_F(OrigenInterfaceTester,parameterManipulation){
   }
 
   tester.add_parameter("Moderator Density",0.45);
-  names.clear(); values.clear();
+  names.clear(); 
+  values.clear();
 
   tester.get_parameters(names,values);
   EXPECT_EQ(names.size(),(params.size()-1)) << "Parameter addition did not result in the correct number of remaining parameters.";
@@ -263,17 +264,22 @@ TEST_F(OrigenInterfaceTester,solveTest){
   tester.delete_powers();
 
   tester.set_powers(powers);
-  tester.solve();
-
+  EXPECT_NO_THROW(tester.solve());
+  // TODO: Add tests on burnup, other parameters
+  tester.reset_material();
 /*
   ids[0]=922350;
   ids[1]=922380;
   tester.set_materials_with_masses(ids,masses);
 */
+  tester.set_id_tags(id_tags);
+  tester.set_parameters(params);
+  tester.set_lib_path(lib_path);
   tester.set_powers(powers);
   tester.add_time_step(500);
-  tester.add_power(5.e7);
+  tester.add_power(5.e6);
   tester.interpolate();
+  tester.set_materials(ids,concs);
   tester.solve();
 }
 

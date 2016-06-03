@@ -155,9 +155,9 @@ public:
     void set_materials(const std::vector<int>&, const std::vector<double>&);
 
     /*!
-    ** \brief - Function to delete/clear the material object to be replaced.
+    ** \brief - Function to reset the material object to be replaced.
     */
-    void delete_material();
+    void reset_material();
 
     /*!
      ** \brief - Function to set the units used in the concentrations vectors.

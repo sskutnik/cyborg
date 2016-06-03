@@ -166,7 +166,7 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power)
     std::vector<double> org_atom;
     //react.get_concentrations_final(org_atom);
     //react.get_masses_final(org_atom,"atoms_ppm");
-    react.get_masses_final(org_atom,"GATOMS");
+    react.get_masses_final(org_atom,"GRAMS");
 
     // Normalize to atom fractions
     double atomNorm = std::accumulate(org_atom.begin(),org_atom.end(), 0.0);    
@@ -177,7 +177,8 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power)
     for(int j=0; j!=org_id.size(); ++j){       
        if(org_atom[j] > 0.) { 
           v[org_id[j]] = org_atom[j];
-          if(org_atom[j] > 1.E-3) std::cerr << "Setting v[" << org_id[j] << "] to: " << org_atom[j] << std::endl;
+          //if(org_atom[j] > 1.E-4) std::cerr << "Setting v[" << org_id[j] << "] to: " << org_atom[j] << std::endl;
+          if(org_id[j] == 922380 || org_id[j] == 922350) std::cerr << "Setting v[" << org_id[j] << "] to: " << org_atom[j] << std::endl;
        }
     }
     cyclus::Composition::Ptr comp_out = cyclus::Composition::CreateFromAtom(v);
