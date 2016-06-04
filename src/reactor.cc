@@ -63,15 +63,15 @@ void reactor::Load_() {
 }
 
 void reactor::Discharge_(double core_fraction) {
-    // Pop 1/3 of core from fuel buffer (except on retiring time step)
+    // Pop 1/n_batches of core from fuel buffer (except on retiring time step)
     cyclus::Material::Ptr to_burn = fuel.Pop(fuel.capacity()/core_fraction);
-    std::cerr << "Calling deplete..." << std::endl;
+    //std::cerr << "Calling deplete..." << std::endl;
     // Transmute material ready for discharge
     // Assume even power between cycles (for now)
     double cyclePower = power_cap/core_fraction*1E6; // convert power from MWt => W
-    std::cerr << "cyclePower (W): " << cyclePower << "  power_cap (MWt): " << power_cap << "  core_fraction: " << core_fraction << std::endl;
+    //std::cerr << "cyclePower (W): " << cyclePower << "  power_cap (MWt): " << power_cap << "  core_fraction: " << core_fraction << std::endl;
     to_burn = Deplete_(to_burn, cyclePower);
-    std::cerr << "Finished deplete." << std::endl;
+    //std::cerr << "Finished deplete." << std::endl;
 
     // Discharge fuel to spent fuel buffer
     spent_inventory.Push(to_burn);
@@ -140,19 +140,19 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power)
     // i.e., 1/3 fraction => 3 cycles
     for(size_t i=1; i <= round(this->fuel_capacity*1.E3/mat->quantity()); ++i) {
        // Cycle timestep is in months; use years for ORIGEN for simplicity
-       dp_time.push_back(cycle_length*i*1.0/12.0);
+       dp_time.push_back(cycle_length*i*1.0/12.0);        
        // SES TODO: Eventually handle non-uniform cycle powers
        dp_pow.push_back(power);
 
        //std::cerr << "Pushing back time: " << cycle_length*i*1.0/12.0 << "  power: " << power << std::endl;
        // SES TODO: Add inter-cycle decay
     }
-    react.set_time_steps(dp_time); 
     react.set_time_units("y");
+    react.set_time_steps(dp_time); 
     
-    react.set_powers(dp_pow);  
     react.set_power_units("watt");
- 
+    react.set_powers(dp_pow);  
+
     // Run Calculation
     react.solve();
 
@@ -166,7 +166,7 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power)
     std::vector<double> org_atom;
     //react.get_concentrations_final(org_atom);
     //react.get_masses_final(org_atom,"atoms_ppm");
-    react.get_masses_final(org_atom,"GRAMS");
+    react.get_masses_final(org_atom,"GATOMS");
 
     // Normalize to atom fractions
     double atomNorm = std::accumulate(org_atom.begin(),org_atom.end(), 0.0);    
@@ -177,8 +177,7 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power)
     for(int j=0; j!=org_id.size(); ++j){       
        if(org_atom[j] > 0.) { 
           v[org_id[j]] = org_atom[j];
-          //if(org_atom[j] > 1.E-4) std::cerr << "Setting v[" << org_id[j] << "] to: " << org_atom[j] << std::endl;
-          if(org_id[j] == 922380 || org_id[j] == 922350) std::cerr << "Setting v[" << org_id[j] << "] to: " << org_atom[j] << std::endl;
+          if(org_atom[j] > 1.E-4) std::cerr << "Setting v[" << org_id[j] << "] to: " << org_atom[j] << std::endl;
        }
     }
     cyclus::Composition::Ptr comp_out = cyclus::Composition::CreateFromAtom(v);

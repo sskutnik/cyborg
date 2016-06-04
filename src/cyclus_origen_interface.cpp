@@ -233,6 +233,13 @@ void cyclus2origen::set_power_units(const char* power_units){
   b_powerUnits = Origen::Power::units(power_units);
 }
 
+/*
+   std::transform(b_times.begin(), b_times.end(), b_times.begin(),
+      std::bind1st(std::multiplies<double>(){ 
+         Origen::Time::factor<Origen::Time::SECONDS>(this->b_timeUnits));
+      } ));
+*/
+
 void cyclus2origen::add_time_step(const double time){
    using cyclus::StateError;
    if(time<0){
@@ -508,6 +515,7 @@ void cyclus2origen::solve(std::vector<double>& times, std::vector<double>& fluxe
      }
      std::vector<double> tmpFlux, tmpPower;
      b_mat->solve(dt_rel, &tmpFlux, &tmpPower);
+
      std::cerr << "Burnup(" << i << "): " << b_mat->burnup_at(i) << "  burunup_eos: " << b_mat->burnup_eos() << std::endl;     
    }
 }
@@ -558,16 +566,23 @@ void cyclus2origen::get_ids_zzzaaai(std::vector<int> &ids_out) const{
   }
 }
 
-void cyclus2origen::prob_spec_lib(Origen::SP_Library lib,std::vector<double> &times,std::vector<double> &fluxes,std::vector<double> &powers) {
+void cyclus2origen::prob_spec_lib(Origen::SP_Library lib, const std::vector<double> &times, 
+                                  const std::vector<double> &fluxes, const std::vector<double> &powers) {
+   std::vector<double> timeTmp = times;
+   std::vector<double> powTmp; 
+
    if(b_timeUnits!=Origen::Time::DAYS){
-      for(auto& time : times) time *= Origen::Time::factor(Origen::Time::DAYS, b_timeUnits);
+      for(auto &time : timeTmp) time *= Origen::Time::factor(Origen::Time::DAYS, b_timeUnits);
    }
-   if(fluxes.size()>0 && powers.size()==0) {
-      for(auto& flux : fluxes) powers.push_back(flux*b_mat->power_factor_bos());
-   } else if(fluxes.size()>0 && powers.size()>0) {
+   if(!fluxes.empty() && powers.empty() ) {
+      for(auto& flux : fluxes) powTmp.push_back(flux*b_mat->power_factor_bos());
+   } else if(!(fluxes.empty() || powers.empty()) ) {
       std::stringstream ss;
       ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Both the fluxes and powers vectors have values! Choose one!" << std::endl;
       throw cyclus::ValueError(ss.str());
+   }
+   else {
+      powTmp = powers;
    }
 
    if(times.size()!=powers.size()+1){
@@ -581,11 +596,10 @@ void cyclus2origen::prob_spec_lib(Origen::SP_Library lib,std::vector<double> &ti
    double buTmp;
    for(size_t i = 0; i < powers.size(); i++){
       // Powers in watts, times in days, and hm mass in grams => buTmp in MWd/MTU (equiv. to W*d/g)
-      buTmp = powers[i]*(times[i+1]-times[i])/b_mat->initial_hm_mass();
+      buTmp = powTmp[i]*(timeTmp[i+1]-timeTmp[i])/b_mat->initial_hm_mass();
       if(i > 0) buTmp += burnups.back();
       burnups.push_back(buTmp);
       std::stringstream ss;
-      std::cerr << "prob_spec_lib: pushing back burnup: " << burnups.back() << std::endl;
       ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Burnups(" << i << ") = " << burnups[i] << std::endl;
    }
    if(burnups.size()!=powers.size()){
