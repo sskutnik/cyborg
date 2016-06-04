@@ -124,34 +124,6 @@ void cyclus2origen::get_id_tags(std::vector<std::string> &names, std::vector<std
   }
 }
 
-/*
-void cyclus2origen::set_materials_with_masses(std::vector<int> &ids, const std::vector<double> &masses){
-  using cyclus::StateError;
-  using cyclus::ValueError;
-  if(ids.size()==0){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::set_materials_with_masses(" << __LINE__ << ") : No IDs provided in ID vector!" << std::endl;
-    throw StateError(ss.str());
-  }
-  if(masses.size()==0){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::set_materials_with_masses(" << __LINE__ << ") : No masses provided in the masses vector!" << std::endl;
-    throw StateError(ss.str());
-  }
-  if(masses.size()!=ids.size()){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::set_materials_with_masses(" << __LINE__ << ") : Size mismatch between ID and mass vectors!" << std::endl;
-    throw ValueError(ss.str());
-  }
-  std::vector<double> concs;
-  Origen::ConcentrationConverter cv;
-  for(size_t i = 0; i < ids.size(); i++){
-    concs.push_back(cv.convert_to(Origen::ConcentrationUnit::CM_2_BARN,ids[i],Origen::ConcentrationUnit::KILOGRAMS,masses[i],b_vol));
-  }
-  this->set_materials(ids,concs);
-}
-*/
-
 void cyclus2origen::set_materials(const std::vector<int> &ids, const std::vector<double> &concs){
   using cyclus::StateError;
   using cyclus::ValueError;
@@ -515,8 +487,6 @@ void cyclus2origen::solve(std::vector<double>& times, std::vector<double>& fluxe
      }
      std::vector<double> tmpFlux, tmpPower;
      b_mat->solve(dt_rel, &tmpFlux, &tmpPower);
-
-     std::cerr << "Burnup(" << i << "): " << b_mat->burnup_at(i) << "  burunup_eos: " << b_mat->burnup_eos() << std::endl;     
    }
 }
 
@@ -564,6 +534,32 @@ void cyclus2origen::get_ids_zzzaaai(std::vector<int> &ids_out) const{
   for(auto id : *(b_mat->sizzzaaa_list())){
     ids_out.push_back(ScaleData::Utils::pizzzaaa_to_zzzaaai(id));
   }
+}
+
+double cyclus2origen::burnup_last() const {
+   using cyclus::StateError;
+    
+   if(b_mat->nsteps() == 0) {
+     std::stringstream ss;
+     ss << "Cyborg::reactor::get_burnup_final(" << __LINE__ << ") : No burnup steps found!" << std::endl;
+     throw StateError(ss.str());
+     return -1.0;
+   }
+   return this->burnup_at(b_mat->nsteps());
+}
+
+double cyclus2origen::burnup_at(const int stepNum) const {
+   using cyclus::ValueError;
+
+   if(stepNum < 0 || stepNum > b_mat->nsteps()) {
+      std::stringstream ss;
+      ss << "Cyborg::reactor::burnup_at(" << __LINE__ << ") : Step requested " 
+         << stepNum << " falls outside the bounds [0," << b_mat->nsteps() << "]!" << std::endl;
+      throw ValueError(ss.str());
+      return -1.0;
+   }
+   // +1 due to burnup_at incremented by time position => +1 gives eos
+   return b_mat->burnup_at(stepNum + 1); 
 }
 
 void cyclus2origen::prob_spec_lib(Origen::SP_Library lib, const std::vector<double> &times, 

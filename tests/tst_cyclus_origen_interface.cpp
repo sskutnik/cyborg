@@ -1,6 +1,6 @@
 /*!
  *  \file - tst_cyclus_origen_interface.cpp
- *  \author - Nicholas C. Sly
+ *  \author - Nicholas C. Sly, Steven E. Skutnik
  */
 
 #include <algorithm>
@@ -11,6 +11,7 @@
 #include <gtest/gtest.h>
 
 #include "cyclus_origen_interface.h"
+#include "orglib_default_location.h"
 #include "error.h"
 
 using namespace OrigenInterface;
@@ -18,65 +19,54 @@ using namespace OrigenInterface;
 class OrigenInterfaceTester : public ::testing::Test {
 protected:
 
-  OrigenInterfaceTester(){
+  OrigenInterfaceTester() {
+  } 
 
-    lib_names.push_back("ce14_e20.arplib");
-    lib_names.push_back("ce14_e30.arplib");
+  void SetUp() {
+     fluxes.push_back(1.e14);
+     fluxes.push_back(2.e14);
+     fluxes.push_back(3.e14);
 
-    lib_path = "/home/nsly/scale_dev_data/arplibs";
+     powers.push_back(1.e7);
+     powers.push_back(2.e7);
+     powers.push_back(3.e7);
 
-    id_tags["Assembly Type"] = "ce14x14";
-    id_tags["Fuel Type"] = "Uranium";
-    id_tags["Something"] = "Else";
+     times.push_back(0.);
+     times.push_back(100.);
+     times.push_back(200.);
+     times.push_back(300.);  
 
-    params["Enrichment"] = 4.5;
-    params["Moderator Density"] = 0.45;
-    params["Fuel Temperature"] = 9000;
+     // Initial concentrations; default units of kg
+     concs.push_back(4.0);
+     concs.push_back(96.0);
 
-    ids.push_back(922350);
-    ids.push_back(922380);
+     ids.push_back(922350);
+     ids.push_back(922380);
 
-    fluxes.push_back(1.e14);
-    fluxes.push_back(2.e14);
-    fluxes.push_back(3.e14);
+     lib_names.push_back("ce14_e20.arplib");
+     lib_names.push_back("ce14_e30.arplib");
 
-    powers.push_back(1.e7);
-    powers.push_back(2.e7);
-    powers.push_back(3.e7);
+     lib_path = ORIGEN_LIBS_DEFAULT;
 
-    concs.push_back(4);
-    concs.push_back(96);
+     id_tags["Assembly Type"] = "ce14x14";
+     id_tags["Fuel Type"] = "Uranium";
+     id_tags["Something"] = "Else";
 
-    masses.push_back(5);
-    masses.push_back(95);
-
-    times.push_back(0.);
-    times.push_back(100.);
-    times.push_back(200.);
-    times.push_back(300.);
+     params["Enrichment"] = concs[0]/(concs[0] + concs[1]);
+     params["Moderator Density"] = 0.45;
+     params["Fuel Temperature"] = 9000;
   }
 
-  void SetUp()
-  {
-// assign initial values to variables declared below.
+  void TearDown() {    
   }
 
-  void TearDown()
-  {
-// destroy objects created by SetUp.
-  }
-// define variables that don't require new calls here.
   std::vector<std::string> lib_names;
   std::string lib_path;
   std::map<std::string,std::string> id_tags;
   std::map<std::string,double> params;
   std::vector<int> ids;
-  std::vector<double> fluxes;
-  std::vector<double> powers;
-  std::vector<double> concs;
-  std::vector<double> masses;
-  std::vector<double> times;
   std::vector<int> iblank;
+  std::vector<double> fluxes, powers, times, concs;
   std::vector<double> dblank;
   cyclus2origen tester;
 };
@@ -196,11 +186,10 @@ TEST_F(OrigenInterfaceTester,interpolationTest){
 
   tester.set_lib_path(lib_path);
   std::cout << "Expect next line to be warning about unspecified tag 'Moderator Density'." << std::endl;
-  tester.interpolate();
+  EXPECT_NO_THROW(tester.interpolate());
 }
 
 TEST_F(OrigenInterfaceTester,materialTest){
-  EXPECT_TRUE(TRUE);
 
   id_tags.erase("Something");
   params.erase("Fuel Temperature");
@@ -210,20 +199,15 @@ TEST_F(OrigenInterfaceTester,materialTest){
 
   EXPECT_THROW(tester.set_materials(ids,concs),cyclus::StateError);
 
-  tester.interpolate();
+  EXPECT_NO_THROW(tester.interpolate());
 
   EXPECT_THROW(tester.set_materials(iblank,concs),cyclus::StateError);
- // EXPECT_THROW(tester.set_materials_with_masses(iblank,masses),cyclus::StateError);
   EXPECT_THROW(tester.set_materials(ids,dblank),cyclus::StateError);
-  //EXPECT_THROW(tester.set_materials_with_masses(ids,dblank),cyclus::StateError);
+
   iblank.push_back(1);
   EXPECT_THROW(tester.set_materials(iblank,concs),cyclus::ValueError);
-  //EXPECT_THROW(tester.set_materials_with_masses(iblank,masses),cyclus::ValueError);
 
-  tester.set_materials(ids,concs);
-  //ids[0] = 922350;
-  //ids[1] = 922380;
-  //tester.set_materials_with_masses(ids,masses);
+  EXPECT_NO_THROW(tester.set_materials(ids,concs));
 }
 /* Commented out until such time as fluxes are properly implemented.
 ** Currently hindered by the need to translate to flux in order to
@@ -237,7 +221,8 @@ TEST_F(OrigenInterfaceTester,fluxTest){
 */
 TEST_F(OrigenInterfaceTester,powerTest){
   EXPECT_THROW(tester.set_powers(dblank),cyclus::StateError);
-  tester.set_powers(powers);
+  EXPECT_NO_THROW(tester.set_powers(powers));
+  // Test that powers were set correctly
 }
 
 TEST_F(OrigenInterfaceTester,solveTest){
@@ -264,14 +249,17 @@ TEST_F(OrigenInterfaceTester,solveTest){
   tester.delete_powers();
 
   tester.set_powers(powers);
-  EXPECT_NO_THROW(tester.solve());
-  // TODO: Add tests on burnup, other parameters
+  ASSERT_NO_THROW(tester.solve());
+
+  // Check burnups for each step
+  EXPECT_FLOAT_EQ(tester.burnup_at(0),10000.);
+  EXPECT_FLOAT_EQ(tester.burnup_at(1),30000.);
+  EXPECT_FLOAT_EQ(tester.burnup_at(2),60000.);
+  EXPECT_FLOAT_EQ(tester.burnup_last(),60000.);
+
+  // TODO: Add tests for other end-of-cycle parameters
+  
   tester.reset_material();
-/*
-  ids[0]=922350;
-  ids[1]=922380;
-  tester.set_materials_with_masses(ids,masses);
-*/
   tester.set_id_tags(id_tags);
   tester.set_parameters(params);
   tester.set_lib_path(lib_path);
@@ -280,7 +268,11 @@ TEST_F(OrigenInterfaceTester,solveTest){
   tester.add_power(5.e6);
   tester.interpolate();
   tester.set_materials(ids,concs);
-  tester.solve();
+  ASSERT_NO_THROW(tester.solve());
+
+  EXPECT_FLOAT_EQ(tester.burnup_at(3),70000.);
+  EXPECT_FLOAT_EQ(tester.burnup_last(),70000.);
+
 }
 
 TEST_F(OrigenInterfaceTester,resultTest){
@@ -291,49 +283,40 @@ TEST_F(OrigenInterfaceTester,resultTest){
   tester.set_parameters(params);
   tester.set_lib_path(lib_path);
   tester.interpolate();
+
   tester.set_materials(ids,concs);
   tester.set_powers(powers);
-  tester.set_time_steps(times);
-  tester.solve();
+  tester.set_time_steps(times); 
+  ASSERT_TRUE(powers.size() == times.size()-1);
+
+  ASSERT_NO_THROW(tester.solve());
 
   std::vector<int> ids_out;
   tester.get_ids(ids_out);
   EXPECT_EQ(1946,ids_out.size()) << "Resulting ID vector is not of the correct size.";
 
-  //std::vector<std::vector<double> > concs_out;
-  //tester.get_concentrations(concs_out);
 
   std::vector<std::vector<double> > masses_out;
   tester.get_masses(masses_out);
    
    
-  //EXPECT_EQ(times.size(),concs_out.size()) << "get_concentrations() returned an unexpected number of concentration vectors!";
   EXPECT_EQ(times.size(),masses_out.size()) << "get_masses() returned an unexpected number of concentration vectors!";
   for(size_t i = 0; i < times.size(); i++){
-    //EXPECT_EQ(1946,concs_out[i].size()) << "Concentrations vector #" << i << " for time " << times[i] << " is of the incorrect size.";
     EXPECT_EQ(1946,masses_out[i].size()) << "Masses vector #" << i << " for time " << times[i] << " is of the incorrect size.";
 
-    //std::vector<double> conc_out;
-    //tester.get_concentrations_at(i,conc_out);
-    //tester.get_masses_at(i,conc_out);
     std::vector<double> mass_out;
     tester.get_masses_at(i,mass_out);
     for(size_t j = 0; j < masses_out[i].size(); j++){
-      //ASSERT_EQ(conc_out[j],concs_out[i][j]) << "Disagreement between return of get_concentrations() and get_concentrations_at() for " << ids_out[j] << " at time " << times[i] << ".";
       EXPECT_EQ(mass_out[j],masses_out[i][j]) << "Disagreement between return of get_masses() and get_masses_at() for " << ids_out [j] << " at time " << times[i] << ".";
     }
   }
 
-  //std::vector<double> conc_out;
-  //tester.get_concentrations_final(conc_out);
-  //tester.get_masses_final(conc_out);
   std::vector<double> mass_out;
   tester.get_masses_final(mass_out);
   size_t numTimes = times.size();
 
   EXPECT_EQ(mass_out.size(),masses_out[numTimes-1].size()) << "Size mismatch between final mass vector size.";
   for(size_t i = 0; i < masses_out[numTimes-1].size(); ++i){
-    //EXPECT_EQ(conc_out[i],concs_out[concs_out.size()-1][i]) << "Disagreement between return of get_concentrations() and get_concentrations_final().";
     EXPECT_EQ(mass_out[i],masses_out[numTimes-1][i]) << "Disagreement between return of get_masses() and get_masses_final().";
   }
 }

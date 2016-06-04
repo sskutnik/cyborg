@@ -65,13 +65,12 @@ void reactor::Load_() {
 void reactor::Discharge_(double core_fraction) {
     // Pop 1/n_batches of core from fuel buffer (except on retiring time step)
     cyclus::Material::Ptr to_burn = fuel.Pop(fuel.capacity()/core_fraction);
-    //std::cerr << "Calling deplete..." << std::endl;
+
     // Transmute material ready for discharge
     // Assume even power between cycles (for now)
     double cyclePower = power_cap/core_fraction*1E6; // convert power from MWt => W
     //std::cerr << "cyclePower (W): " << cyclePower << "  power_cap (MWt): " << power_cap << "  core_fraction: " << core_fraction << std::endl;
     to_burn = Deplete_(to_burn, cyclePower);
-    //std::cerr << "Finished deplete." << std::endl;
 
     // Discharge fuel to spent fuel buffer
     spent_inventory.Push(to_burn);
@@ -129,8 +128,7 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power)
     std::transform(mass_fraction.begin(), mass_fraction.end(), norm_mass.begin(), 
                    std::bind1st(std::multiplies<double>(),mat->quantity()/massNorm));
 
-    //for(auto mass : norm_mass) { std::cerr << "Normed mass: " << mass/(mat->quantity()*1000) << std::endl; }
-    for(auto mass : norm_mass) { std::cerr << "Normed mass: " << mass/(mat->quantity()) <<  std::endl; }
+    //for(auto mass : norm_mass) { std::cerr << "Normed mass: " << mass/(mat->quantity()) <<  std::endl; }
     react.set_materials(in_ids,norm_mass);
     
     // Set depletion time & power
@@ -164,8 +162,6 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power)
    
     // Get mass data from ORIGEN
     std::vector<double> org_atom;
-    //react.get_concentrations_final(org_atom);
-    //react.get_masses_final(org_atom,"atoms_ppm");
     react.get_masses_final(org_atom,"GATOMS");
 
     // Normalize to atom fractions
@@ -177,7 +173,7 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power)
     for(int j=0; j!=org_id.size(); ++j){       
        if(org_atom[j] > 0.) { 
           v[org_id[j]] = org_atom[j];
-          if(org_atom[j] > 1.E-4) std::cerr << "Setting v[" << org_id[j] << "] to: " << org_atom[j] << std::endl;
+          //if(org_atom[j] > 1.E-4) std::cerr << "Setting v[" << org_id[j] << "] to: " << org_atom[j] << std::endl;
        }
     }
     cyclus::Composition::Ptr comp_out = cyclus::Composition::CreateFromAtom(v);
