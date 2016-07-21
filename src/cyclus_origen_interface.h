@@ -7,9 +7,8 @@
 #include "Origen/Core/dc/Library.h"
 #include "Origen/Core/dc/Material.h"
 #include "Origen/Core/dc/Power.h"
+#include "Origen/Core/dc/TagManager.h"
 #include "Origen/Core/dc/Time.h"
-//#include "Origen/Core/xf/Solver.h"
-//#include "Origen/Solver/cram/Solver_cram.h"
 #include "Origen/Solver/SolverSelector.h"
 
 /*!
@@ -25,8 +24,8 @@
  * \note - Envisioned usage is:
  *         set_lib_name->set_id_tag(somewhat optional)->
  *         add_parameter(optional)->interpolate->
- *         set_materials->set_flux->set_time_steps->
- *         set_**_units(as necessary)->
+ *         set_power->set_time_steps->
+ *         set_**_units(as necessary)->set_materials->
  *         set_solver(if made available)->solve.
  *         
  *         After that, concentrations at various
@@ -37,7 +36,7 @@
  *         set_lib_path->set_id_tag->add_parameter->interpolate
  *           --Gets you a problem specific library at default burnups.
  *
- *         set_materials_with_masses->solve(times,fluxes)->
+ *         set_materials_with_masses->solve(times,powers)->
  *         get_ids->get_masses.
  *           --Gets you material concentrations at specified burnups.
  *           --After initial solve, materials can be set based on output
@@ -125,28 +124,6 @@ public:
      ** \param  Empty vector of strings to be populated with ID tag values.
      */
     void get_id_tags(std::vector<std::string>&, std::vector<std::string>&) const;
-
-    /*!
-    ** \brief  Function to set the initial materials to be depleted.
-    **         Mass units conversion is automatically handled via ORIGEN;
-    **         mass units assumed to be those specified via set_mass_units
-    ** \param  Vector of ids.  Works with ids formatted in either
-    **         zzzaaai or pizzzaaa.
-    ** \param  Vector of concentrations.  Should directly correspond
-    **         to the vector of ids.
-    */
-    void set_materials(const std::vector<int>&, const std::vector<double>&);
-
-    /*!
-    ** \brief  Function to reset the material object to be replaced.
-    */
-    void reset_material();
-
-    /*!
-     ** \brief  Function to set the units used in the concentrations vectors.
-     ** \param  String declaring the units used for the materials concentrations.
-     */
-    void set_mat_units(const std::string);
 
     /*!
      ** \brief  Function to set the times at which a burn step will end,
@@ -283,6 +260,28 @@ public:
     void interpolate();
 
     /*!
+    ** \brief  Function to set the initial materials to be depleted.
+    **         Mass units conversion is automatically handled via ORIGEN;
+    **         mass units assumed to be those specified via set_mass_units
+    ** \param  Vector of ids.  Works with ids formatted in either
+    **         zzzaaai or pizzzaaa.
+    ** \param  Vector of concentrations.  Should directly correspond
+    **         to the vector of ids.
+    */
+    void set_materials(const std::vector<int>&, const std::vector<double>&);
+
+    /*!
+    ** \brief  Function to reset the material object to be replaced.
+    */
+    void reset_material();
+
+    /*!
+     ** \brief  Function to set the units used in the concentrations vectors.
+     ** \param  String declaring the units used for the materials concentrations.
+     */
+    void set_mat_units(const std::string);
+
+    /*!
      ** \brief  Function to call the solver.  Assumes time and
      **         flux/power vectors have been populated by their
      **         respective functions.
@@ -328,6 +327,8 @@ public:
      */
     void get_masses_at(int, std::vector<double>&, const std::string="kilograms") const;
 
+    void get_masses_at_easy(int, std::map<int,double>&, const std::string="zzzaaai", const std::string="kilograms") const;
+
     /*!
      ** \brief  Function to retrieve the concentrations at the end
      **         of the final burn step.
@@ -337,9 +338,18 @@ public:
     void get_masses_final(std::vector<double>&, const std::string="kilograms") const;
 
     /*!
+     ** \brief  Function to retrieve the concentrations at the end
+     **         of the final burn step in a more accessible
+     **         container.
+     ** \param  std::map to be filled with ids for keys and final
+     **         masses for values.
+     */
+    void get_masses_final_easy(std::map<int,double>&, const std::string="zzzaaai", const std::string="kilograms") const;
+
+    /*!
      ** \brief  Function to return the IDs that correspond to the
      **         concentrations fetched by the previous functions.
-     ** \param  Vector of vectors to be filled with final ids,
+     ** \param  Vector of integers to be filled with final ids,
      **         which are applicable to every burn step. Given in
      **         pizzzaaa format.
      */
@@ -388,11 +398,10 @@ protected:
     Origen::SP_Material b_mat;
     Origen::SP_NuclideSet b_nucset;
     Origen::SP_Concentrations b_concs;
-//    Solver_cram b_slv;
     std::vector<std::string> b_lib_names;
     std::string b_lib_path;
     std::string b_interp_name;
-    const double b_vol=1.;   
+    const double b_vol=1.; // cm^3  
     std::vector<double> b_burnups;
     std::vector<double> b_fluxes;
     std::vector<double> b_powers;

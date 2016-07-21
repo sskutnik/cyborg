@@ -31,7 +31,7 @@
 ###############################################################################
 
   # Add source for OrigenInterface tests
-  FILE(GLOB OrigenInterface_TEST_CC "${CMAKE_CURRENT_SOURCE_DIR}/*origen*.cpp")
+  FILE(GLOB OrigenInterface_TEST_CC "${CMAKE_CURRENT_SOURCE_DIR}/*interface*.cpp")
    
   # Build cyborg_unit_tests
   ADD_EXECUTABLE(OrigenInterface_unit_tests
