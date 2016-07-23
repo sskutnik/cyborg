@@ -327,7 +327,7 @@ public:
      */
     void get_masses_at(int, std::vector<double>&, const std::string="kilograms") const;
 
-    void get_masses_at_easy(int, std::map<int,double>&, const std::string="zzzaaai", const std::string="kilograms") const;
+    void get_masses_at_map(int, std::map<int,double>&, const std::string="zzzaaai", const std::string="kilograms") const;
 
     /*!
      ** \brief  Function to retrieve the concentrations at the end
@@ -344,7 +344,7 @@ public:
      ** \param  std::map to be filled with ids for keys and final
      **         masses for values.
      */
-    void get_masses_final_easy(std::map<int,double>&, const std::string="zzzaaai", const std::string="kilograms") const;
+    void get_masses_final_map(std::map<int,double>&, const std::string="zzzaaai", const std::string="kilograms") const;
 
     /*!
      ** \brief  Function to return the IDs that correspond to the
@@ -370,9 +370,31 @@ public:
     
     /*!
     **  \brief  Get the burnup (MWd/MTU) at the specified step
-    &&  \param  step depletion step to retrieve burnup for
+    **  \param  step depletion step to retrieve burnup for
     */   
     double burnup_at(const int step) const;
+
+    /*!
+    **  \brief  Get vector of all burnups (MWd/MTU)
+    */
+    std::vector<double> get_burnups() const;
+
+    /*!
+    **  \brief  Get vector of all times
+    **  \param  units Time unit to return (default in days)
+    */
+    std::vector<double> get_times(const std::string units="d") const;
+  
+    /*!
+    **  \brief  Get vector of all powers
+    **  \param  units Power unit to return (default in watts)
+    */
+    std::vector<double> get_powers(const std::string units="watt") const; 
+
+    /*!
+    **  \brief  Get vector of all fluxes
+    */
+    std::vector<double> get_fluxes() const;
 protected:
 
     /*!

@@ -495,7 +495,7 @@ void cyclus2origen::get_masses_at(int p, std::vector<double> &masses_out, const 
 
    if( p < 0 || p >= b_mat->ntimes() ){
      std::stringstream ss;
-     ss << "Cyborg::reactor::get_masses_at(" << __LINE__ << ") : Step requested " << p << " falls outside the bounds [0," << b_mat->ntimes() << "]!\n";
+     ss << "Cyborg::reactor::get_masses_at(" << __LINE__ << ") : Step requested " << p << " falls outside the bounds [0," << b_mat->ntimes() << ")!\n";
      throw ValueError(ss.str());
    }
 
@@ -512,75 +512,65 @@ void cyclus2origen::get_masses_at(int p, std::vector<double> &masses_out, const 
    tmpConcs->get_vals(masses_out); 
 }
 
-void cyclus2origen::get_masses_at_easy(int p, std::map<int,double> &masses_out, const std::string id_type, const std::string units) const{
+void cyclus2origen::get_masses_at_map(int p, std::map<int,double> &masses_out, const std::string id_type, const std::string units) const{
    using cyclus::ValueError;
 
    if( p < 0 || p >= b_mat->ntimes() ){
        std::stringstream ss;
-       ss << "Cyborg::reactor::get_masses_at_easy(" << __LINE__ << "): Step requested " << p << " falls outside the bounds [0," << b_mat->ntimes() << "]!\n";
+       ss << "Cyborg::reactor::get_masses_at_map(" << __LINE__ << "): Step requested " << p << " falls outside the bounds [0," << b_mat->ntimes() << ")!\n";
        throw ValueError(ss.str());
    }
 
-   Origen::SP_NuclideSet tmpNucSet = std::make_shared<Origen::NuclideSet>(*(b_mat->sizzzaaa_list()));
-   Origen::SP_Concentrations tmpConcs = std::make_shared<Origen::Concentrations>();
-   tmpConcs->set_nuclide_set(*tmpNucSet);
-
-   masses_out.clear();
-   b_mat->get_concs_at(tmpConcs.get(), p);
-   tmpConcs->set_units(Origen::convertStringToConcUnit(units));
-
-   std::vector<int> ids;
-   std::vector<double> tmp_out;
-
-   tmpConcs->get_vals(tmp_out);
-   
+   std::vector<int> ids;   
    if(id_type == "sizzzaaa"){
       this->get_ids(ids);
    }else if(id_type == "zzzaaai"){
        this->get_ids_zzzaaai(ids);
    }else{
        std::stringstream ss;
-       ss << "Cyborg::reactor::get_masses_at_easy(" << __LINE__ << ") : Type of nuclide ids requested is not recognized.  Must be 'sizzzaaa' or 'zzzaaai'.\n";
+       ss << "Cyborg::reactor::get_masses_at_map(" << __LINE__ << ") : Type of nuclide ids requested is not recognized.  Must be 'sizzzaaa' or 'zzzaaai'.\n";
        throw ValueError(ss.str());
    }
 
-   if(ids.size() != tmp_out.size())
+   std::vector<double> concs;
+   this->get_masses_at(p, concs, units);
+
+   if(ids.size() != concs.size())
    {
        std::stringstream ss;
-       ss << "Cyborg::reactor::get_masses_at_easy(" << __LINE__ << ") : Number of nuclide ids (" << ids.size() << ") does not match the number of concentrations (" << tmp_out.size() << ").\n";
+       ss << "Cyborg::reactor::get_masses_at_map(" << __LINE__ << ") : Number of nuclide ids (" << ids.size() << ") does not match the number of concentrations (" << concs.size() << ").\n";
        throw ValueError(ss.str());
    }
 
-   for(size_t i = 0; i < ids.size(); i++) masses_out[ids[i]] = tmp_out[i];
+   for(size_t i = 0; i < ids.size(); i++) masses_out[ids[i]] = concs[i];
 }
 
 void cyclus2origen::get_masses_final(std::vector<double> &masses_out, const std::string units) const{
   this->get_masses_at(b_mat->nsteps(), masses_out, units);
 }
 
-void cyclus2origen::get_masses_final_easy(std::map<int,double> &masses_out, const std::string id_type, const std::string units) const
+void cyclus2origen::get_masses_final_map(std::map<int,double> &masses_out, const std::string id_type, const std::string units) const
 {
    using cyclus::ValueError;
 
-   std::vector<int> ids;
-   std::vector<double> concs;
-   
+   std::vector<int> ids;   
    if(id_type == "sizzzaaa"){
       this->get_ids(ids);
    }else if(id_type == "zzzaaai"){
        this->get_ids_zzzaaai(ids);
    }else{
        std::stringstream ss;
-       ss << "Cyborg::reactor::get_masses_final_easy(" << __LINE__ << ") : Type of nuclide ids requested is not recognized.  Must be 'sizzzaaa' or 'zzzaaai'.\n";
+       ss << "Cyborg::reactor::get_masses_final_map(" << __LINE__ << ") : Type of nuclide ids requested is not recognized.  Must be 'sizzzaaa' or 'zzzaaai'.\n";
        throw ValueError(ss.str());
    }
 
+   std::vector<double> concs;
    this->get_masses_final(concs, units);
 
    if(ids.size() != concs.size())
    {
        std::stringstream ss;
-       ss << "Cyborg::reactor::get_masses_final_easy(" << __LINE__ << ") : Number of nuclide ids (" << ids.size() << ") does not match the number of concentrations (" << concs.size() << ").\n";
+       ss << "Cyborg::reactor::get_masses_final_map(" << __LINE__ << ") : Number of nuclide ids (" << ids.size() << ") does not match the number of concentrations (" << concs.size() << ").\n";
        throw ValueError(ss.str());
    }
 
@@ -597,30 +587,107 @@ void cyclus2origen::get_ids_zzzaaai(std::vector<int> &ids_out) const{
   }
 }
 
-double cyclus2origen::burnup_last() const {
-   using cyclus::StateError;
-    
-   if(b_mat->nsteps() == 0) {
-     std::stringstream ss;
-     ss << "Cyborg::reactor::get_burnup_final(" << __LINE__ << ") : No burnup steps found!\n";
-     throw StateError(ss.str());
-     return -1.0;
-   }
+double cyclus2origen::burnup_last() const {    
    return this->burnup_at(b_mat->nsteps()-1);
 }
 
 double cyclus2origen::burnup_at(const int stepNum) const {
    using cyclus::ValueError;
+   using cyclus::StateError;
 
+   if(b_mat->nsteps() == 0) {
+     std::stringstream ss;
+     ss << "Cyborg::reactor::burnup_at(" << __LINE__ << ") : No burnup steps found!\n";
+     throw StateError(ss.str());
+     return -1.0;
+   }
    if(stepNum < 0 || stepNum >= b_mat->nsteps()) {
       std::stringstream ss;
       ss << "Cyborg::reactor::burnup_at(" << __LINE__ << ") : Step requested " 
-         << stepNum << " falls outside the bounds [0," << b_mat->nsteps()-1 << "]!\n";
+         << stepNum << " falls outside the bounds [0," << b_mat->nsteps()-1 << ")!\n";
       throw ValueError(ss.str());
       return -1.0;
    }
    // +1 due to burnup_at incremented by time position => +1 gives eos
    return b_mat->burnup_at(stepNum + 1); 
+}
+
+std::vector<double> cyclus2origen::get_burnups() const { 
+   
+   using cyclus::StateError;
+
+   std::vector<double> burnups;
+   if(b_mat->nsteps() == 0) {
+     std::stringstream ss;
+     ss << "Cyborg::reactor::get_burnups(" << __LINE__ << ") : No burnup steps found!\n";
+     throw StateError(ss.str());
+     return burnups;
+   }
+   for(size_t i=0; i < b_mat->nsteps(); ++i) {
+      burnups.push_back(this->burnup_at(i));
+   }
+}
+
+std::vector<double> cyclus2origen::get_times(std::string units) const { 
+   
+   using cyclus::StateError;
+
+   std::vector<double> times;
+   if(this->b_times.size() == 0) {
+     std::stringstream ss;
+     ss << "Cyborg::reactor::get_times(" << __LINE__ << ") : No times found!\n";
+     throw StateError(ss.str());
+     return times;
+   }
+  
+   Origen::Time::UNITS tmpUnits = Origen::Time::units(units.c_str());
+   if(tmpUnits == Origen::Time::UNITS::UNKNOWN) {
+     std::stringstream ss;
+     ss << "Cyborg::reactor::get_times(" << __LINE__ << ") : Unknown time units: " << units << "; unable to convert times!\n";
+     throw StateError(ss.str());
+     return times;
+   }
+   // Convert power units if requested
+   if( tmpUnits != b_timeUnits && tmpUnits != Origen::Time::UNITS::UNKNOWN) {
+     for(size_t i=0; i < b_times.size(); ++i) {
+       times.push_back( b_times.at(i) / Origen::Time::factor(tmpUnits, b_timeUnits));
+      }
+   }
+   else {
+     times = b_times;
+   }
+   return times;
+}
+
+std::vector<double> cyclus2origen::get_powers(std::string units) const { 
+   
+   using cyclus::StateError;
+
+   std::vector<double> powers;
+   if(this->b_powers.size() == 0) {
+     std::stringstream ss;
+     ss << "Cyborg::reactor::get_powers(" << __LINE__ << ") : No powers found!\n";
+     throw StateError(ss.str());
+     return powers;
+   }
+  
+   Origen::Power::UNITS tmpUnits = Origen::Power::units(units.c_str());
+   if(tmpUnits == Origen::Power::UNITS::UNKNOWN) {
+     std::stringstream ss;
+     ss << "Cyborg::reactor::get_powers(" << __LINE__ << ") : Unknown power units: " << units << "; unable to convert powers!\n";
+     throw StateError(ss.str());
+     return powers;
+   }
+   // Convert power units if requested
+   if( tmpUnits != b_powerUnits && tmpUnits != Origen::Power::UNITS::UNKNOWN) {
+     for(size_t i=0; i < b_powers.size(); ++i) {
+       powers.push_back( b_powers.at(i) / Origen::Power::factor(tmpUnits, b_powerUnits));
+      }
+   }
+   else {
+     powers = b_powers;
+   }
+   return powers;
 }
 
 void cyclus2origen::prob_spec_lib(Origen::SP_Library lib, const std::vector<double> &times, 
@@ -664,5 +731,7 @@ void cyclus2origen::prob_spec_lib(Origen::SP_Library lib, const std::vector<doub
    }
   b_lib = lib->interpolate_Interp1D(burnups);
 }
+
+
 
 }//namespace

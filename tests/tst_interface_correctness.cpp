@@ -82,8 +82,6 @@ protected:
       for( unsigned int i=9; i > 0; --i) { times.push_back(1700.0 + 1825/pow(3,(i-1))); }
       
        // std::cerr << "Pushed back: " << 1700.0 + 1825.0/pow(3,(i-1)) << std::endl; }
-
-      std::cout << "powers.size() " << powers.size() << "  times.size() = " << times.size() << std::endl;
   }
 
   void TearDown() {    
@@ -110,66 +108,61 @@ TEST_F(OrigenResultTester,CorrectnessTest){
 
   std::map<int,double> masses_out;
 
-  tester.get_masses_at_easy(0,masses_out);
+  tester.get_masses_at_map(0,masses_out);
 
   double test234 = 0.534;
 
   auto tmp234 = masses_out[922340];
-
   EXPECT_NEAR(tmp234,test234,0.001) << "Initial mass for u-234 does not match previous external calculation results.";
 
   // Value 445.7490 grams comes from an externally executed combination of obiwan and origen depletion.
   test234 = 0.445749;
 
   masses_out.clear();
-  tester.get_masses_at_easy(10,masses_out);
+  tester.get_masses_at_map(10,masses_out);
 
   tmp234 = masses_out[922340];
-
   EXPECT_NEAR(tmp234,test234,0.001) << "Mass of u-234 after initial burn does not match previous external calculation results.";
 
   test234 = 0.3710746;
 
   masses_out.clear();
-  tester.get_masses_at_easy(29,masses_out);
+  tester.get_masses_at_map(29,masses_out);
 
   tmp234 = masses_out[922340];
-
   EXPECT_NEAR(tmp234,test234,0.001) << "Mass of u-234 after second burn does not match previous external calculation results.";
 
   test234 = 0.3711255;
 
   masses_out.clear();
-  tester.get_masses_at_easy(38,masses_out);
+  tester.get_masses_at_map(38,masses_out);
 
   tmp234 = masses_out[922340];
-
   EXPECT_NEAR(tmp234,test234,0.001) << "Mass of u-234 after second decay does not match previous external calculation results.";
 
   test234 = 0.3085457;
 
   masses_out.clear();
-  tester.get_masses_at_easy(48,masses_out);
+  tester.get_masses_at_map(48,masses_out);
 
   tmp234 = masses_out[922340];
-
   EXPECT_NEAR(tmp234,test234,0.001) << "Mass of u-234 after final burn does not match previous external calculation results.";
 
   test234 = 0.3146113;
 
   masses_out.clear();
-  tester.get_masses_at_easy(56,masses_out);
+  tester.get_masses_at_map(57,masses_out);
+
+  //std::cout << "Number of times: " << tester.get_times().size() << std::endl;
 
   tmp234 = masses_out[922340];
-
-  EXPECT_NEAR(tmp234,test234,0.001) << "Mass of u-234 after final burn does not match previous external calculation results.";
+  EXPECT_NEAR(tmp234,test234,0.001) << "Mass of u-234 after final decay does not match previous external calculation results.";
 
   test234 = 0.3146113;
 
   masses_out.clear();
-  tester.get_masses_final_easy(masses_out);
+  tester.get_masses_final_map(masses_out);
 
   tmp234 = masses_out[922340];
-
-  EXPECT_NEAR(tmp234,test234,0.001) << "Resulting mass for u-234 does not match previous external calculation results.";
+  EXPECT_NEAR(tmp234,test234,0.001) << "Final mass for u-234 does not match previous external calculation results.";
 }
