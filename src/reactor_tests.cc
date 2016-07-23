@@ -97,10 +97,16 @@ TEST_F(reactorTest, Tock) {
 
   //std::cerr << "Reactor assembly type: " << src_facility_->assembly_type << std::endl;
   //std::cerr << "Tock: moderator density = " << src_facility_->mod_density << std::endl;
-  //std::cerr << "lib data path: " << src_facility_->lib_path << std::endl; 
- 
-/*
-  try{ src_facility_->Tock(); }
+  //std::cerr << "lib data path: " << src_facility_->lib_path << std::endl;  
+
+ /*
+  src_facility_->reactor_time = src_facility_->cycle_length - 1; 
+  try{ 
+     src_facility_->Tock(); // no depletion
+     src_facility_->Tock(); // depletion
+     src_facility_->Tock(); // no depletion
+
+  }
   catch( std::exception& ex) {
     std::cerr << "Exception thrown: " << ex.what() << std::endl;
   }

@@ -58,121 +58,32 @@ protected:
       concs.push_back(972.19); // for u-238
 
       // Setting powers and breaks in Watts.
-      powers.push_back(20.e6);
-      powers.push_back(20.e6);
-      powers.push_back(20.e6);
-      powers.push_back(20.e6);
-      powers.push_back(20.e6);
-      powers.push_back(20.e6);
-      powers.push_back(20.e6);
-      powers.push_back(20.e6);
-      powers.push_back(20.e6);
-      powers.push_back(20.e6);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(19.e6);
-      powers.push_back(19.e6);
-      powers.push_back(19.e6);
-      powers.push_back(19.e6);
-      powers.push_back(19.e6);
-      powers.push_back(19.e6);
-      powers.push_back(19.e6);
-      powers.push_back(19.e6);
-      powers.push_back(19.e6);
-      powers.push_back(19.e6);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(18.e6);
-      powers.push_back(18.e6);
-      powers.push_back(18.e6);
-      powers.push_back(18.e6);
-      powers.push_back(18.e6);
-      powers.push_back(18.e6);
-      powers.push_back(18.e6);
-      powers.push_back(18.e6);
-      powers.push_back(18.e6);
-      powers.push_back(18.e6);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
-      powers.push_back(0.);
+      powers.insert(powers.end(), 10, 20.0e6);
+      powers.insert(powers.end(), 9, 0.0);
+      powers.insert(powers.end(), 10, 19.0e6);
+      powers.insert(powers.end(), 9, 0.0);
+      powers.insert(powers.end(), 10, 18.0e6);
+      powers.insert(powers.end(), 9, 0.0);
 
-      //  Setting times (must be cumulative).. in days
-      times.push_back(0.);
-      times.push_back(54.);
-      times.push_back(108.);
-      times.push_back(162.);
-      times.push_back(216.);
-      times.push_back(270.);
-      times.push_back(324.);
-      times.push_back(378.);
-      times.push_back(432.);
-      times.push_back(486.);
-      times.push_back(540.);
-      times.push_back(540.01);
-      times.push_back(540.03);
-      times.push_back(540.1);
-      times.push_back(540.3);
-      times.push_back(541.);
-      times.push_back(543.);
-      times.push_back(550.);
-      times.push_back(570.);
-      times.push_back(580.);
-      times.push_back(634.);
-      times.push_back(688.);
-      times.push_back(742.);
-      times.push_back(796.);
-      times.push_back(850.);
-      times.push_back(904.);
-      times.push_back(958.);
-      times.push_back(1012.);
-      times.push_back(1066.);
-      times.push_back(1120.);
-      times.push_back(1120.01);
-      times.push_back(1120.03);
-      times.push_back(1120.1);
-      times.push_back(1120.3);
-      times.push_back(1121.);
-      times.push_back(1123.);
-      times.push_back(1130.);
-      times.push_back(1150.);
-      times.push_back(1160.);
-      times.push_back(1214.);
-      times.push_back(1268.);
-      times.push_back(1322.);
-      times.push_back(1376.);
-      times.push_back(1430.);
-      times.push_back(1484.);
-      times.push_back(1538.);
-      times.push_back(1592.);
-      times.push_back(1646.);
-      times.push_back(1700.);
-      times.push_back(1701.);
-      times.push_back(1703.);
-      times.push_back(1710.);
-      times.push_back(1730.);
-      times.push_back(1800.);
-      times.push_back(2000.);
-      times.push_back(2700.);
-      times.push_back(3525.);
+      //  Setting times (must be cumulative).. in days      
+      // Irradiation cycle #1
+      for( unsigned int i=0; i < 11; ++i) { times.push_back(540.0/10 * i); }
+      // Decay #1
+      for( unsigned int i=9; i > 0; --i) { times.push_back(540 + 40.0/pow(3,(i-1))); }
+
+      // Irradiation #2
+      for( unsigned int i=1; i < 11; ++i) { times.push_back(580 + 540.0/10 * i); }
+      // Decay #2 (40 days)
+      for( unsigned int i=9; i > 0; --i) { times.push_back(1120.0 + 40.0/pow(3,(i-1))); }
+
+      // Irradiation #3
+      for( unsigned int i=1; i < 11; ++i) { times.push_back(1160 + 540.0/10 * i); }
+      // Decay #3 (final)
+      for( unsigned int i=9; i > 0; --i) { times.push_back(1700.0 + 1825/pow(3,(i-1))); }
+      
+       // std::cerr << "Pushed back: " << 1700.0 + 1825.0/pow(3,(i-1)) << std::endl; }
+
+      std::cout << "powers.size() " << powers.size() << "  times.size() = " << times.size() << std::endl;
   }
 
   void TearDown() {    

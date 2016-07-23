@@ -101,12 +101,31 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power)
     //std::cerr << "Enrichent = " << this->enrichment << std::endl; 
     react.add_parameter("Enrichment",enrichment);
    
-    //std::cerr << "Moderator Density = " << this->mod_density << std::endl;
     if(this->mod_density > 0.0) react.add_parameter("Moderator Density",this->mod_density);   
+    
+    // Set depletion time & power
+    std::vector<double> dp_time, dp_pow;
+    dp_time.push_back(0.0);
+    // Number of cycles is assumed to be proportional to core fraction per batch
+    // i.e., 1/3 fraction => 3 cycles
+    for(size_t i=1; i <= round(this->fuel_capacity*1.E3/mat->quantity()); ++i) {
+       // Cycle timestep is in months; use years for ORIGEN for simplicity
+       dp_time.push_back(cycle_length*i*1.0/12.0);        
+       // SES TODO: Eventually handle non-uniform cycle powers
+       dp_pow.push_back(power);
+
+       //std::cerr << "Pushing back time: " << cycle_length*i*1.0/12.0 << "  power: " << power << std::endl;
+       // SES TODO: Add inter-cycle decay
+    }
+    react.set_time_units("y");
+    react.set_time_steps(dp_time); 
+    
+    react.set_power_units("watt");
+    react.set_powers(dp_pow);  
 
     // Create cross-section library
     react.interpolate();
-    
+
     // Pass nuclide IDs and masses to ORIGEN
     std::vector<int> in_ids;
     std::vector<double> mass_fraction;
@@ -131,25 +150,6 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power)
     //for(auto mass : norm_mass) { std::cerr << "Normed mass: " << mass/(mat->quantity()) <<  std::endl; }
     react.set_materials(in_ids,norm_mass);
     
-    // Set depletion time & power
-    std::vector<double> dp_time, dp_pow;
-    dp_time.push_back(0.0);
-    // Number of cycles is assumed to be proportional to core fraction per batch
-    // i.e., 1/3 fraction => 3 cycles
-    for(size_t i=1; i <= round(this->fuel_capacity*1.E3/mat->quantity()); ++i) {
-       // Cycle timestep is in months; use years for ORIGEN for simplicity
-       dp_time.push_back(cycle_length*i*1.0/12.0);        
-       // SES TODO: Eventually handle non-uniform cycle powers
-       dp_pow.push_back(power);
-
-       //std::cerr << "Pushing back time: " << cycle_length*i*1.0/12.0 << "  power: " << power << std::endl;
-       // SES TODO: Add inter-cycle decay
-    }
-    react.set_time_units("y");
-    react.set_time_steps(dp_time); 
-    
-    react.set_power_units("watt");
-    react.set_powers(dp_pow);  
 
     // Run Calculation
     react.solve();

@@ -387,7 +387,9 @@ void cyclus2origen::interpolate() {
     throw ValueError(ss.str());
   }
 
-  std::vector<Origen::SP_TagManager> tms = Origen::collectLibrariesParallel(b_lib_names);
+  //std::vector<Origen::SP_TagManager> tms = Origen::collectLibrariesParallel(b_lib_names);
+  // Serial for now until I can get the repo update working
+  std::vector<Origen::SP_TagManager> tms = Origen::collectLibraries(b_lib_names);
   std::vector<Origen::TagManager> tagman;
   for(auto& tm : tms) tagman.push_back(*tm);
 
