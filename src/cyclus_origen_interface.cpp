@@ -679,7 +679,7 @@ std::vector<double> cyclus2origen::get_powers(std::string units) const {
      return powers;
    }
    // Convert power units if requested
-   if( tmpUnits != b_powerUnits && tmpUnits != Origen::Power::UNITS::UNKNOWN) {
+   if( tmpUnits != b_powerUnits) {
      for(size_t i=0; i < b_powers.size(); ++i) {
        powers.push_back( b_powers.at(i) / Origen::Power::factor(tmpUnits, b_powerUnits));
       }

@@ -231,7 +231,23 @@ TEST_F(OrigenInterfaceTester,fluxTest){
 TEST_F(OrigenInterfaceTester,powerTest){
   EXPECT_THROW(tester.set_powers(dblank),cyclus::StateError);
   EXPECT_NO_THROW(tester.set_powers(powers));
-  // Test that powers were set correctly
+
+  std::vector<double> out_power = tester.get_powers();
+
+  EXPECT_TRUE(out_power.size()>0);
+  EXPECT_TRUE(out_power.size()==powers.size());
+
+  for(size_t i = 0; i < out_power.size(); ++i) EXPECT_FLOAT_EQ(out_power[i],powers[i]) << "Powers fetched from interface object do not match those put in.";
+
+  const double scaling_factor = 0.75;
+
+  tester.set_power_scaling_factor(scaling_factor);
+
+  out_power.clear();
+
+  out_power = tester.get_powers();
+
+  for(size_t i = 0; i < out_power.size(); ++i) EXPECT_FLOAT_EQ(out_power[i],powers[i]*scaling_factor) << "Powers fetched after scaling do not match those put in with scaling factor.";
 }
 
 TEST_F(OrigenInterfaceTester,solveTest){
