@@ -427,7 +427,9 @@ protected:
                        const std::vector<double>&, const std::vector<double>&);
 
     Origen::SP_Library b_lib;
+    Origen::SP_Library b_lib_interp;
     Origen::SP_TagManager b_tm;
+    std::vector<Origen::SP_TagManager> b_tagman_list;
     Origen::SP_Material b_mat;
     Origen::SP_NuclideSet b_nucset;
     Origen::SP_Concentrations b_concs;

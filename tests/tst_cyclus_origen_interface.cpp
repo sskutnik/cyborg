@@ -291,7 +291,8 @@ TEST_F(OrigenInterfaceTester,solveTest){
   tester.set_powers(powers);
   tester.add_time_step(500);
   tester.add_power(5.e6);
-  tester.interpolate();
+  tester.set_lib_path("/");
+  EXPECT_NO_THROW(tester.interpolate());
   tester.set_materials(ids,concs);
   ASSERT_NO_THROW(tester.solve());
 
