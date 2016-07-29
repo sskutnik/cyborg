@@ -194,7 +194,7 @@ void cyclus2origen::set_materials(const std::vector<int> &ids, const std::vector
   auto mat2 = std::make_shared<Origen::Material>(b_lib,name,id,b_vol); // Generates new material based on b_lib from prob_spec_lib
   mat2->set_concs_at(*b_concs,0); // Concentrations are the same regardless.
   b_mat->clear();
-  b_mat = mat2;
+  b_mat.swap(mat2);
 }
 
 void cyclus2origen::reset_material(){
@@ -352,12 +352,28 @@ void cyclus2origen::interpolate() {
     ss << "Cyborg::reactor::interpolate(" << __LINE__ << ") : No ID tags found!\n";
     throw StateError(ss.str());
   }
-  if(b_lib_names.size()==0 && b_lib_path.size()==0){
+
+  if(b_tagman_list.size() > 0)
+  {
+    for(auto& tm : b_tagman_list)
+    {
+      if(!tm->interpolationCompare(*b_tm))
+      {
+        b_tagman_list.clear();
+        b_lib_names.clear();
+        break;
+      }
+    }
+  }
+
+  if(b_lib_names.size()==0 && b_lib_path.size()==0 && b_tagman_list.size()==0){
     std::stringstream ss;
     ss << "Cyborg::reactor::interpolate(" << __LINE__ << ") : No library names or path specified!\n";
     throw cyclus::ValueError(ss.str());
   }
-  if(b_lib_names.size()==0){
+
+  std::vector<Origen::TagManager> tagman;
+  if(b_lib_names.size()==0 && b_tagman_list.size()==0){
     struct dirent *drnt;
     auto dr = opendir(b_lib_path.c_str());
     std::string midstring = "";
@@ -376,39 +392,43 @@ void cyclus2origen::interpolate() {
       }
     }
     closedir(dr);
+
+    // Bail if no libraries specified
+    if(b_lib_names.size() == 0) {
+      std::stringstream ss;
+      ss << "Cyborg::reactor::interpolate(" << __LINE__ << ") : No libraries specified or found!\n";
+      throw ValueError(ss.str());
+    }
+
+    //std::vector<Origen::SP_TagManager> tms = Origen::collectLibrariesParallel(b_lib_names);
+    // Serial for now until I can get the repo update working
+    std::vector<Origen::SP_TagManager> tms = Origen::collectLibraries(b_lib_names);
+    for(auto& tm : tms) tagman.push_back(*tm);
+
+    // Bail if no libraries found
+    if(tagman.size() == 0) {
+      std::stringstream ss;
+      ss << "Cyborg::reactor::interpolate(" << __LINE__ << ") : No libraries found that have tag managers!\n";
+      throw ValueError(ss.str());
+    }
+
+    // Down-select to libraries matching specified ID tags
+    tagman = Origen::selectLibraries(tagman,*b_tm);
+    b_tagman_list.clear();
+    for(auto tm : tagman) b_tagman_list.push_back(std::make_shared<Origen::TagManager>(tm));
+    if(b_tagman_list.size() == 0){
+      std::stringstream ss;
+      ss << "Cyborg::reactor::interpolate(" << __LINE__ << ") : No libraries found that match specified ID tags!\n";
+      throw ValueError(ss.str());
+    }
+  }
+  else
+  {
+    for(auto& tm : b_tagman_list) tagman.emplace_back(*tm);
   }
 
-    
-
-  // Bail if no libraries specified
-  if(b_lib_names.size() == 0) {
-    std::stringstream ss;
-    ss << "Cyborg::reactor::interpolate(" << __LINE__ << ") : No libraries specified or found!\n";
-    throw ValueError(ss.str());
-  }
-
-  //std::vector<Origen::SP_TagManager> tms = Origen::collectLibrariesParallel(b_lib_names);
-  // Serial for now until I can get the repo update working
-  std::vector<Origen::SP_TagManager> tms = Origen::collectLibraries(b_lib_names);
-  std::vector<Origen::TagManager> tagman;
-  for(auto& tm : tms) tagman.push_back(*tm);
-
-  // Bail if no libraries found
-  if(tagman.size() == 0) {
-    std::stringstream ss;
-    ss << "Cyborg::reactor::interpolate(" << __LINE__ << ") : No libraries found that have tag managers!\n";
-    throw ValueError(ss.str());
-  }
-
-  // Down-select to libraries matching specified ID tags
-  tagman = Origen::selectLibraries(tagman,*b_tm);
-  if(tagman.size() == 0){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::interpolate(" << __LINE__ << ") : No libraries found that match specified ID tags!\n";
-    throw ValueError(ss.str());
-  }
-
-  b_lib = Origen::interpLibraryND(tagman,*b_tm);
+  b_lib_interp = Origen::interpLibraryND(tagman,*b_tm);
+  b_lib = b_lib_interp->clone();
   b_interp_name = (b_lib->scp_tag_manager())->getIdTag("Filename");
 }
 
@@ -454,6 +474,13 @@ void cyclus2origen::solve(std::vector<double>& times, std::vector<double>& fluxe
       std::stringstream ss;
       ss << "Cyborg::reactor::solve(" << __LINE__ << ") : Materials object has no material masses set.  Run set_materials first.\n";
       throw StateError(ss.str());
+   }
+
+   if(b_mat->nsteps() != 0){
+      std::cerr << "Recalculating to new burnups using previous interpolable parameters.\n" \
+                << "Previous results will no longer be accessible.\n";
+      b_lib = b_lib_interp->clone();
+      this->reset_material();
    }
 
    // Initialize the solver
@@ -679,7 +706,7 @@ std::vector<double> cyclus2origen::get_powers(std::string units) const {
      return powers;
    }
    // Convert power units if requested
-   if( tmpUnits != b_powerUnits && tmpUnits != Origen::Power::UNITS::UNKNOWN) {
+   if( tmpUnits != b_powerUnits) {
      for(size_t i=0; i < b_powers.size(); ++i) {
        powers.push_back( b_powers.at(i) / Origen::Power::factor(tmpUnits, b_powerUnits));
       }

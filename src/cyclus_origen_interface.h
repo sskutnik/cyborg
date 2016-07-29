@@ -174,6 +174,17 @@ public:
     void add_power(const double);
 
     /*!
+     ** \brief  Function to provide a factor by which to scale the
+     **         values in the powers vector in the case the assembly
+     **         being simulated is not at the peak power level, but
+     **         at some known level relative to the peak power level.
+     */
+    void set_power_scaling_factor(const double factor)
+    {
+      if(factor>=0.) for(auto& num : b_powers) num*=factor;
+    };
+
+    /*!
      ** \brief  Function to delete the powers on this object.
      **         Powers can also be overwritten using the set_powers()
      **         function.
@@ -389,7 +400,7 @@ public:
     **  \brief  Get vector of all powers
     **  \param  units Power unit to return (default in watts)
     */
-    std::vector<double> get_powers(const std::string units="watt") const; 
+    std::vector<double> get_powers(const std::string units="W") const; 
 
     /*!
     **  \brief  Get vector of all fluxes
@@ -416,7 +427,9 @@ protected:
                        const std::vector<double>&, const std::vector<double>&);
 
     Origen::SP_Library b_lib;
+    Origen::SP_Library b_lib_interp;
     Origen::SP_TagManager b_tm;
+    std::vector<Origen::SP_TagManager> b_tagman_list;
     Origen::SP_Material b_mat;
     Origen::SP_NuclideSet b_nucset;
     Origen::SP_Concentrations b_concs;
