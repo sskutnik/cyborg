@@ -65,15 +65,43 @@ class reactor : public cyclus::Facility,
 
   virtual void Load_();
 
-  void Discharge_(double);
+
+  /// Transmute the batch that is about to be discharged from the core to its
+  /// fully burnt state as defined by its outrecipe.
+  void Transmute();
+  
+  /// Transmute the specified number of assemblies in the core to their
+  /// fully burnt state as defined by their outrecipe.
+  void Transmute(int n_assem);
+ 
+
+  /// Records a reactor event to the output db with the given name and note val.
+  void Record(std::string name, std::string val);
+  
+  void Discharge_(const int);
 
   /// Deplete the material for this cycle
   /// @param mat   The material to be depleted 
   /// @param power Depletion power of the material in MW
-  cyclus::Material::Ptr Deplete_(cyclus::Material::Ptr, double);
+  cyclus::Composition::Ptr Deplete_(cyclus::Material::Ptr, double);
 
-  int reactor_time;
   bool decom;
+
+
+ ////////// Data accessors /////////
+ int get_cycle_length() { return this->cycle_length; }
+ int get_cycle_time() { return this->cycle_time; }
+ int get_refuel_time() { return this->refuel_time; }
+ int get_n_assem_fresh() { return this->n_assem_fresh; }
+ int get_n_assem_spent() { return this->n_assem_spent; }
+ int get_n_assem_batch() { return this->n_assem_batch; }
+ int get_n_assem_core() { return this->n_assem_core; }
+
+ private:
+   bool retired() {
+      return exit_time() != -1 && context()->time() >= exit_time();
+  }
+
   /* Module Members */
 
   /// Level 1 Parameters
@@ -105,12 +133,81 @@ class reactor : public cyclus::Facility,
                       "uilabel":"Power Capacity"}
   double power_cap;
 
+ //////////// inventory and core params ////////////
+  #pragma cyclus var { \
+    "doc": "Mass (kg) of a single assembly.",   \
+    "uilabel": "Assembly Mass", \
+    "units": "kg", \
+  }
+  double assem_size;
+
+  #pragma cyclus var { \
+    "uilabel": "Number of Assemblies per Batch", \
+    "doc": "Number of assemblies that constitute a single batch.  " \
+           "This is the number of assemblies discharged from the core fully " \
+           "burned each cycle."                                         \
+           "Batch size is equivalent to ``n_assem_batch / n_assem_core``.", \
+  }
+  int n_assem_batch;
+
+  #pragma cyclus var { \
+    "uilabel": "Number of Assemblies in Core", \
+    "doc": "Number of assemblies that constitute a full core.", \
+  }
+  int n_assem_core;
+
+  #pragma cyclus var { \
+    "default": 0, \
+    "uilabel": "Minimum Fresh Fuel Inventory", \
+    "units": "assemblies", \
+    "doc": "Number of fresh fuel assemblies to keep on-hand if possible.", \
+  }
+  int n_assem_fresh;
+
+  #pragma cyclus var { \
+    "default": 1000000000, \
+    "uilabel": "Maximum Spent Fuel Inventory", \
+    "units": "assemblies", \
+    "doc": "Number of spent fuel assemblies that can be stored on-site before" \
+           " reactor operation stalls.", \
+  }
+  int n_assem_spent;
+
+
+  ///////// cycle params ///////////
+  #pragma cyclus var { \
+     "doc": "The duration of a full operational cycle (excluding refueling " \
+            "time) in time steps.", \
+     "uilabel": "Cycle Length", \
+     "units": "time steps", \
+  }
+  int cycle_time;
+
+  #pragma cyclus var { \
+     "doc": "The duration of a full refueling period - the minimum time between"\
+            " the end of a cycle and the start of the next cycle.", \
+     "uilabel": "Refueling Outage Duration", \
+     "units": "time steps", \
+  }
+  int refuel_time;
+
+  #pragma cyclus var { \
+     "default": 0, \
+     "doc": "Number of time steps since the start of the last cycle." \
+            " Only set this if you know what you are doing", \
+     "uilabel": "Time Since Start of Last Cycle", \
+     "units": "time steps", \
+  }
+  int cycle_step;
+
+
+/*
   #pragma cyclus var {"tooltip":"Fuel capacity",\
                       "doc":"Total reactor fuel capacity (MT)",\
-                      "units":"MT",\
+                      GG"units":"MT",\
                       "uilabel":"Fuel Capacity"}
   double fuel_capacity;
-
+*/
   #pragma cyclus var {'default':12,\
                       "tooltip":"Cycle length",\
                       "doc":"Time to complete an entire cycle",\
@@ -118,13 +215,13 @@ class reactor : public cyclus::Facility,
                       "units":"time steps"}
   int cycle_length; // default to 12-month cycle
   
-
+/*
   #pragma cyclus var {'default': 0.90,\
                       "tooltip":"Capacity factor (%)",\
                       "doc":"Reactor capacity factor; governs downtime between cycles",\
                       "uilabel":"Capacity Factor"}
   double cap_factor; // default to 90% capacity factor
-
+*/
   #pragma cyclus var {'default': 480,\
                       "tooltip":"Reactor lifetime",\
                       "doc":"Reactor lifetime",\
@@ -162,34 +259,57 @@ class reactor : public cyclus::Facility,
                       "uilabel":"Moderator Density",\
                       "userlevel":1}
   double mod_density;
-
+/*
   #pragma cyclus var {'default':0,\
                       "tooltip":"Burnup",\
                       "doc":"Reactor burnup (MWd/tHM)",\
                       "uilabel":"Burnup",\
                       "userlevel":1}
   double burnup;
-
+*/
   /// Level 3 Parameters
+
+  // should be hidden in ui (internal only). 
+  // True if fuel has already been discharged this cycle.
+  #pragma cyclus var {"default": 0, "doc": "This should NEVER be set manually",\
+                      "internal": True \
+  }
+  bool discharged;
+
+  // should be hidden in ui (internal only). 
+  // True if conditions to perturb output recipe (burnup, initial composition, etc.) have changed
+  #pragma cyclus var {"default": 0, "doc": "This should NEVER be set manually",\
+                      "internal": True \
+  }
+  bool refreshSpentRecipe;
 
 
   /// Material Flow Parameters                                                      
                                                                      
-  #pragma cyclus var {"tooltip":"Incoming material buffer"}
-  cyclus::toolkit::ResBuf<cyclus::Material> fresh_inventory;
-
-  #pragma cyclus var {"tooltip":"Fuel buffer"}
-  cyclus::toolkit::ResBuf<cyclus::Material> fuel;
-
-  #pragma cyclus var {"tooltip":"Outgoing material buffer"}
-  cyclus::toolkit::ResBuf<cyclus::Material> spent_inventory;
-
+  // referenced (e.g. n_batch_fresh, assem_size, etc.).
+  #pragma cyclus var {"capacity": "n_assem_fresh * assem_size",\
+                      "tooltip": "Incoming fresh fuel buffer"}
+  cyclus::toolkit::ResBuf<cyclus::Material> fresh;
+  #pragma cyclus var {"capacity":"n_assem_core * assem_size",\
+                      "tooltip":"Fuel held in core"}
+  cyclus::toolkit::ResBuf<cyclus::Material> core;
+  #pragma cyclus var {"capacity": "n_assem_spent * assem_size",\
+                      "tooltip":"Discharged fuel holding capacity / output buffer"}
+  cyclus::toolkit::ResBuf<cyclus::Material> spent;
+  
+  // Cached composition of spent fuel (calculated from ORIGEN)
+  cyclus::Composition::Ptr spentFuelComp;
+                                                                   
   //// A policy for requesting material
   cyclus::toolkit::MatlBuyPolicy buy_policy;
   //// A policy for sending material
   cyclus::toolkit::MatlSellPolicy sell_policy;
+
+  /// Allow test access to private members
+  friend class ReactorTest;
   
 };
+
 
 }  // namespace cyborg
 

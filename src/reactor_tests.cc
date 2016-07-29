@@ -5,30 +5,33 @@
 using cyborg::reactor;
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-namespace reactor {
+namespace cyborg {
 
-void reactorTest::SetUp() {
+void ReactorTest::SetUp() {
   src_facility_ = new cyborg::reactor(tc_.get());
   InitParameters();
   SetUpReactor();
 }
 
-void reactorTest::TearDown() {
+void ReactorTest::TearDown() {
   delete src_facility_;
 }
 
-void reactorTest::InitParameters(){
+void ReactorTest::InitParameters(){
   in_r1 = "in_r1";
   in_c1 = "in_c1";
   out_c1 = "out_c1";
   power_cap = 500.0; // MWt
-  fuel_capacity = 20.0; // MT
+  core_capacity = 60.0; // MT
   cycle_length = 12; // months
-  cap_factor = 0.9;
   reactor_lifetime = 480;
   enrichment = 4.0;
   mod_density = 0.0; // Setting to 0 to test auto-interpolation of density
-
+  n_assem_core = 120;
+  n_assem_spent = 0;
+  n_assem_batch = 40;
+  assem_mass = 325; // kg 
+ 
   cyclus::CompMap v;
   v[922350000] = (enrichment/100.0);
   v[922380000] = (100.0 - enrichment)/100.0;
@@ -37,64 +40,102 @@ void reactorTest::InitParameters(){
   tc_.get()->AddRecipe(in_r1, recipe);
 }
 
-void reactorTest::SetUpReactor(){
+void ReactorTest::SetUpReactor(){
   src_facility_->fuel_recipe = in_r1;
   src_facility_->fresh_fuel = in_c1;
   src_facility_->spent_fuel = out_c1;
   src_facility_->power_cap = power_cap;
-  src_facility_->fuel_capacity = fuel_capacity;
   src_facility_->cycle_length = cycle_length;
-  src_facility_->cap_factor = cap_factor;
   src_facility_->reactor_lifetime = reactor_lifetime;
   src_facility_->enrichment = enrichment;
   src_facility_->mod_density = mod_density;
+  src_facility_->core.capacity(assem_mass*n_assem_core);
+  src_facility_->spent.capacity(3.0*assem_mass*n_assem_core);
+  src_facility_->fresh.capacity(2.0*assem_mass*n_assem_core);
+  src_facility_->assembly_type = "w17x17";
+  src_facility_->n_assem_batch = n_assem_batch;
 
-  src_facility_->fuel.capacity(src_facility_->fuel_capacity);
+  //src_facility_->fuel.capacity(src_facility_->fuel_capacity);
    
-  // Create an input material buffer of fresh fuel (100 MTU), i.e., 5 * fuel capacity
+  // Create an input material buffer of fresh fuel (255 MTU), i.e., 5 * core capacity
   cyclus::Composition::Ptr rec = tc_.get()->GetRecipe(in_r1);
-  cyclus::Material::Ptr recmat = cyclus::Material::CreateUntracked(src_facility_->fuel.space()*5.0*1000, rec); 
-  src_facility_->fresh_inventory.Push(recmat); 
+  cyclus::Material::Ptr recmat = cyclus::Material::CreateUntracked(src_facility_->core.space()*5.0, rec); 
+
+  for(size_t i=0; i < n_assem_core; ++i) { 
+     if(src_facility_->fresh.space() > assem_mass) src_facility_->fresh.Push(recmat->ExtractQty(assem_mass));  
+  }
 }
 
-void reactorTest::TestInitState(cyborg::reactor* fac){
+void ReactorTest::set_cycle_time(int t) { src_facility_->cycle_time = t; }
+
+void ReactorTest::TestInitState(cyborg::reactor* fac){
   EXPECT_EQ(in_r1, fac->fuel_recipe);
   EXPECT_EQ(in_c1, fac->fresh_fuel);
   EXPECT_EQ(out_c1, fac->spent_fuel);
   EXPECT_EQ(power_cap, fac->power_cap);
-  EXPECT_EQ(fuel_capacity, fac->fuel_capacity);
+  //EXPECT_EQ(fuel_capacity, fac->fuel_capacity);
   EXPECT_EQ(cycle_length, fac->cycle_length);
-  EXPECT_EQ(cap_factor, fac->cap_factor);
+  //EXPECT_EQ(cap_factor, fac->cap_factor);
   EXPECT_EQ(reactor_lifetime, fac->reactor_lifetime);
   EXPECT_EQ(enrichment, fac->enrichment);
   EXPECT_EQ(mod_density, fac->mod_density);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-TEST_F(reactorTest, InitialState) {
+TEST_F(ReactorTest, InitialState) {
+/*
+  std::string config =
+     "  <fuel_inrecipes>  <val>uox</val>      </fuel_inrecipes>  "
+     "  <fuel_incommods>  <val>uox</val>      </fuel_incommods>  "
+     "  <fuel_outcommods> <val>waste</val>    </fuel_outcommods>  "
+     ""
+     "  <cycle_time>1</cycle_time>  "
+     "  <refuel_time>0</refuel_time>  "
+     "  <assem_size>1</assem_size>  "
+     "  <n_assem_core>7</n_assem_core>  "
+     "  <n_assem_batch>3</n_assem_batch>  ";
+ 
+  int simdur = 50;
+  cyclus::MockSim sim(cyclus::AgentSpec(":cycamore:Reactor"), config, simdur);
+  sim.AddSource("uox").Finalize();
+  sim.AddRecipe("uox", c_uox());
+
+  int id = sim.Run();
+
+  QueryResult qr = sim.db().Query("Transactions", NULL);
+  // 7 for initial core, 3 per time step for each new batch for remainder
+  //   EXPECT_EQ(7+3*(simdur-1), qr.rows.size());
+  //
+
+*/
   // Test things about the initial state of the facility here
   TestInitState(src_facility_);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-TEST_F(reactorTest, Print) {
+TEST_F(ReactorTest, Print) {
   EXPECT_NO_THROW(std::string s = src_facility_->str());
   // Test reactor specific aspects of the print method here
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-TEST_F(reactorTest, Tick) {
-  ASSERT_NO_THROW(src_facility_->Tick());
-  // Test reactor specific behaviors of the Tick function here
+TEST_F(ReactorTest, Tick) {
+  // Test for one step before, during, and after a depletion step
+  set_cycle_time(src_facility_->get_cycle_length() - 1); 
+  EXPECT_NO_THROW(src_facility_->Tick()); // no depletion
+  set_cycle_time(src_facility_->get_cycle_length()); 
+  EXPECT_NO_THROW(src_facility_->Tick()); // depletion
+  set_cycle_time(src_facility_->get_cycle_length() + 1); 
+  EXPECT_NO_THROW(src_facility_->Tick()); // no depletion
+
+  // Test reactor-specific behaviors of the Tick function here
+
 }
 
 //\TODO Add a TickDecom test
 // TODO Add a TockNoDepletion test, modify this to TockDepletion
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-TEST_F(reactorTest, Tock) {
-  src_facility_->fuel.capacity(src_facility_->fuel_capacity*1000);
-  src_facility_->assembly_type = "w17x17";
-
+TEST_F(ReactorTest, Tock) {
   //std::cerr << "Reactor assembly type: " << src_facility_->assembly_type << std::endl;
   //std::cerr << "Tock: moderator density = " << src_facility_->mod_density << std::endl;
   //std::cerr << "lib data path: " << src_facility_->lib_path << std::endl;  
@@ -116,7 +157,7 @@ TEST_F(reactorTest, Tock) {
 */
 
   // Test for one step before, during, and after a depletion step
-  src_facility_->reactor_time = src_facility_->cycle_length - 1; 
+  set_cycle_time(src_facility_->get_cycle_length() - 1); 
   EXPECT_NO_THROW(src_facility_->Tock()); // no depletion
   EXPECT_NO_THROW(src_facility_->Tock()); // depletion
   EXPECT_NO_THROW(src_facility_->Tock()); // no depletion

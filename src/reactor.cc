@@ -2,10 +2,11 @@
 #include "cyclus_origen_interface.h"
 #include "error.h"
 
+//using cyclus::Composition;
 namespace cyborg {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-reactor::reactor(cyclus::Context* ctx) : cyclus::Facility(ctx), reactor_time(1), decom(false) {
+reactor::reactor(cyclus::Context* ctx) : cyclus::Facility(ctx), cycle_time(1), decom(false) {
     
 }
 
@@ -17,20 +18,35 @@ std::string reactor::str() {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void reactor::EnterNotify(){
     Facility::EnterNotify();
-    buy_policy.Init(this, &fresh_inventory, std::string("fresh_inventory"));
+    buy_policy.Init(this, &fresh, std::string("fresh_fuel"));
     buy_policy.Set(fresh_fuel).Start();
 
-    sell_policy.Init(this, &spent_inventory, std::string("spent_inventory")).Set(spent_fuel).Start();
+    sell_policy.Init(this, &spent, std::string("spent_fuel"));
+    sell_policy.Set(spent_fuel).Start();
+    //.Set(spent,spent_fuel).Start();
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void reactor::Tick() {
     if (!decom) {
-        fuel.capacity(fuel_capacity*1000); // store fuel capacity in kg
-        fresh_inventory.capacity(fuel.space()*1000); // store inventory in kg
+        //fuel.capacity(fuel_capacity*1000); // store fuel capacity in kg
+        //fresh_inventory.capacity(fuel.space()*1000); // store inventory in kg
+        // Load Fuel
+        Load_();
+        // Transmute & Discharge if necessary     
+        //std::cerr << "cycle_time = " << cycle_time << "  cycle_length = " << cycle_length << std::endl;
+        if (cycle_time % cycle_length == 0 && cycle_time != reactor_lifetime) {
+            std::cerr << "Discharging " << n_assem_batch << " assemblies" << std::endl;
+            Discharge_(n_assem_batch);
+        }
+        else if (cycle_time == reactor_lifetime){
+            Discharge_(n_assem_core);
+            decom = true;
+        }
     }
-    else if (decom) {
-        fresh_inventory.capacity(0);
+    else {
+        // Should ideally push out all fresh fuel first...
+        fresh.capacity(0);
     }
 }
 
@@ -38,45 +54,98 @@ void reactor::Tick() {
 void reactor::Tock() {
     // Only continue to operate if not exceeding reactor lifetime
     if (!decom) {
-        // Load Fuel
-        Load_();
-        // Transmute & Discharge if necessary
-
-        if (reactor_time % cycle_length == 0 && reactor_time != reactor_lifetime) {
-            Discharge_(3.0);
-        }
-        else if (reactor_time == reactor_lifetime){
-            Discharge_(1.0);
-            decom = true;
-        }
-        ++reactor_time;
+        
+        ++cycle_time;
     }
-    std::cerr << "Finished Tock()" << std::endl;
+    //std::cerr << "Finished Tock()" << std::endl;
 }
+
 
 void reactor::Load_() {
-    if (fuel.space() > 0){
-        // Push material to fuel buffer from fresh inventory
-        double toLoad = std::min(fuel.space(),fresh_inventory.quantity());
-        fuel.Push(fresh_inventory.Pop( toLoad ));
-    }
+  int n = std::min(n_assem_core - core.count(), fresh.count());
+  if (n == 0) {
+    return;
+  }
+  //std::cerr << "n_assem_core = " << n_assem_core << "  core.count() = " << core.count() << std::endl; 
+  std::stringstream ss;
+  //ss << n << " assemblies";
+  Record("LOAD", ss.str());
+  //std::cerr << "LOADING " << ss.str() << std::endl;
+  core.Push(fresh.PopN(n));
+  //std::cerr << "PUSHED " << ss.str() << std::endl;
 }
 
-void reactor::Discharge_(double core_fraction) {
-    // Pop 1/n_batches of core from fuel buffer (except on retiring time step)
-    cyclus::Material::Ptr to_burn = fuel.Pop(fuel.capacity()/core_fraction);
+
+void reactor::Discharge_(int n_assem_discharged) {
+
+    //cyclus::Material::Ptr to_burn = core.Pop(fuel.capacity()/core_fraction);
 
     // Transmute material ready for discharge
     // Assume even power between cycles (for now)
-    double cyclePower = power_cap/core_fraction*1E6; // convert power from MWt => W
-    //std::cerr << "cyclePower (W): " << cyclePower << "  power_cap (MWt): " << power_cap << "  core_fraction: " << core_fraction << std::endl;
-    to_burn = Deplete_(to_burn, cyclePower);
-
+    /*
+    std::cerr << "  power_cap (MWt): " << power_cap 
+              << "  n_assem_discharged: " << n_assem_discharged << std::endl;
+    */
+    Transmute(n_assem_discharged);
+     
     // Discharge fuel to spent fuel buffer
-    spent_inventory.Push(to_burn);
+    spent.Push(core.PopN(n_assem_discharged));
 }
 
-cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power) {
+void reactor::Transmute() { Transmute(n_assem_batch); }
+
+void reactor::Transmute(int n_assem) {
+  using cyclus::toolkit::MatVec;
+
+  MatVec old = core.PopN(std::min(n_assem, core.count()));
+  core.Push(old);
+  if (core.count() > old.size()) {
+    // rotate untransmuted mats back to back of buffer
+    core.Push(core.PopN(core.count() - old.size()));
+  }
+ 
+  std::stringstream ss;
+  ss << old.size() << " assemblies";
+  Record("TRANSMUTE", ss.str());
+  /*
+ * TODO: Call recipe update if needed; otherwise, use old recipe
+ * TODO: Alternative: Generate new recipe every time new fuel / power / etc. conditions
+ *       come about, push this onto the stack?
+ * TODO: Handle multiple depletion recipes, assuming non-homogeneous batches?
+ */
+
+  if(refreshSpentRecipe) {
+     //TODO: Handle cycle powers by batch, send in powers vector
+     //double cyclePower = power_cap/core_fraction*1E6; // convert power from MWt => W
+     // Calculate total thermal power of depleted assemblies; 
+     // Convert from MWt => W
+     double cyclePower = power_cap * static_cast<double>(n_assem_batch)/static_cast<double>(n_assem_core) * 1E6;
+
+     // Check that all assemblies in the batch have the same composition
+     // TODO make this a loop until we've traversed to the end of the batch?
+
+     std::vector<int> matIDs(old.size());
+/*
+     for(auto & mat : old) matIDs.push_back(mat->comp()->id());
+     auto idx = std::adjacent_find( matIDs.begin(), matIDs.end(), std::not_equal_to<int>() );
+     if(idx != old.end()) {
+       // Split batch at idx, re-evaluate
+     }   
+*/     
+     bool isHomogenous = (std::adjacent_find( matIDs.begin(), matIDs.end(), std::not_equal_to<int>() ) == matIDs.end());
+     // FOR NOW: Assume everything in the batch is the same composition
+     spentFuelComp = this->Deplete_(old[0],cyclePower);
+  }
+  for (int i = 0; i < old.size(); i++) {
+     // TODO: Add in multiple spent_comps, map assemblies to compositions each time we do a depletion...
+     old[i]->Transmute(spentFuelComp);
+  }
+
+}
+
+
+//TODO - Separate transmute behaviors from ORIGEN behaviors
+cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power) {
     
     OrigenInterface::cyclus2origen react;
      
@@ -92,13 +161,13 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power)
     react.set_id_tag("Assembly Type",assembly_type);
     
     // Set Interpolable parameters   
+    // TODO: Eventually determine enrichment / interpolable dimensions dynamically...
     if(this->enrichment <= 0.0 || this->enrichment > 100.0) {
        std::stringstream ss;
        ss << "Cyborg::reactor::Deplete_() - invalid enrichment specified! this->enrichment = "
           << this->enrichment << std::endl; 
        throw cyclus::ValueError(ss.str());
     }
-    //std::cerr << "Enrichent = " << this->enrichment << std::endl; 
     react.add_parameter("Enrichment",enrichment);
    
     if(this->mod_density > 0.0) react.add_parameter("Moderator Density",this->mod_density);   
@@ -108,14 +177,17 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power)
     dp_time.push_back(0.0);
     // Number of cycles is assumed to be proportional to core fraction per batch
     // i.e., 1/3 fraction => 3 cycles
-    for(size_t i=1; i <= round(this->fuel_capacity*1.E3/mat->quantity()); ++i) {
+    //for(size_t i=1; i <= round(this->fuel_capacity*1.E3/mat->quantity()); ++i) {
+    for(size_t i=1; i <= round(this->n_assem_core / this->n_assem_batch); ++i) {
        // Cycle timestep is in months; use years for ORIGEN for simplicity
        dp_time.push_back(cycle_length*i*1.0/12.0);        
        // SES TODO: Eventually handle non-uniform cycle powers
        dp_pow.push_back(power);
-
        //std::cerr << "Pushing back time: " << cycle_length*i*1.0/12.0 << "  power: " << power << std::endl;
-       // SES TODO: Add inter-cycle decay
+       
+       // Decay fuel during reload
+       dp_time.push_back(dp_time.back() + refuel_time/12.0);
+       dp_pow.push_back(0.0);
     }
     react.set_time_units("y");
     react.set_time_steps(dp_time); 
@@ -177,9 +249,22 @@ cyclus::Material::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power)
        }
     }
     cyclus::Composition::Ptr comp_out = cyclus::Composition::CreateFromAtom(v);
+    return comp_out;
+/*
     mat->Transmute(comp_out);
 
     return mat;
+*/
+}
+
+void reactor::Record(std::string name, std::string val) {
+  context()
+      ->NewDatum("ReactorEvents")
+      ->AddVal("AgentId", id())
+      ->AddVal("Time", context()->time())
+      ->AddVal("Event", name)
+      ->AddVal("Value", val)
+      ->Record();
 }
 
 extern "C" cyclus::Agent* Constructreactor(cyclus::Context* ctx) {

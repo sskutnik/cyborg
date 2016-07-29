@@ -111,10 +111,17 @@ IF(NOT CYCLUS_DOC_ONLY)
     # Include the boost header files, system, and filesystem libraries
     SET(Boost_USE_STATIC_LIBS       OFF)
     SET(Boost_USE_STATIC_RUNTIME    OFF)
-    FIND_PACKAGE(Boost COMPONENTS filesystem system REQUIRED)
+    FIND_PACKAGE( Boost 1.46.1 COMPONENTS program_options filesystem system REQUIRED)
+    MESSAGE("--    Boost Root: ${Boost_ROOT}")
+    MESSAGE("--    Boost Include directory: ${Boost_INCLUDE_DIR}")
+    MESSAGE("--    Boost Library directories: ${Boost_LIBRARY_DIRS}")
     SET(CYBORG_INCLUDE_DIRS ${CYBORG_INCLUDE_DIRS} ${Boost_INCLUDE_DIR})
+    SET(LIBS ${LIBS} ${Boost_PROGRAM_OPTIONS_LIBRARY})
+    MESSAGE("--    Boost Program Options location: ${Boost_PROGRAM_OPTIONS_LIBRARY}")
     SET(LIBS ${LIBS} ${Boost_FILESYSTEM_LIBRARY})
+    MESSAGE("--    Boost Filesystem location: ${Boost_FILESYSTEM_LIBRARY}")
     SET(LIBS ${LIBS} ${Boost_SYSTEM_LIBRARY})
+    MESSAGE("--    Boost Serialization location: ${Boost_SERIALIZATION_LIBRARY}")
 
     # find lapack and link to it
     # note there is no include directory variable:
