@@ -67,18 +67,22 @@ class reactor : public cyclus::Facility,
 
 
   /// Transmute the batch that is about to be discharged from the core to its
-  /// fully burnt state as defined by its outrecipe.
-  void Transmute();
+  /// fully burnt state 
+  void Transmute_();
   
   /// Transmute the specified number of assemblies in the core to their
-  /// fully burnt state as defined by their outrecipe.
-  void Transmute(int n_assem);
+  /// fully burnt state 
+  void Transmute_(int n_assem);
  
 
   /// Records a reactor event to the output db with the given name and note val.
   void Record(std::string name, std::string val);
-  
-  void Discharge_(const int);
+
+  /// Discharge a batch from the core 
+  bool Discharge_();
+
+  /// Discharge the specified number of assemblies from the core 
+  bool Discharge_(const int);
 
   /// Deplete the material for this cycle
   /// @param mat   The material to be depleted 
@@ -89,8 +93,8 @@ class reactor : public cyclus::Facility,
 
 
  ////////// Data accessors /////////
- int get_cycle_length() { return this->cycle_length; }
  int get_cycle_time() { return this->cycle_time; }
+ int get_cycle_step() { return this->cycle_step; }
  int get_refuel_time() { return this->refuel_time; }
  int get_n_assem_fresh() { return this->n_assem_fresh; }
  int get_n_assem_spent() { return this->n_assem_spent; }
@@ -200,21 +204,6 @@ class reactor : public cyclus::Facility,
   }
   int cycle_step;
 
-
-/*
-  #pragma cyclus var {"tooltip":"Fuel capacity",\
-                      "doc":"Total reactor fuel capacity (MT)",\
-                      GG"units":"MT",\
-                      "uilabel":"Fuel Capacity"}
-  double fuel_capacity;
-*/
-  #pragma cyclus var {'default':12,\
-                      "tooltip":"Cycle length",\
-                      "doc":"Time to complete an entire cycle",\
-                      "uilabel":"Cycle Length",\
-                      "units":"time steps"}
-  int cycle_length; // default to 12-month cycle
-  
 /*
   #pragma cyclus var {'default': 0.90,\
                       "tooltip":"Capacity factor (%)",\
@@ -252,21 +241,14 @@ class reactor : public cyclus::Facility,
                       'atrium9-9', 'atrium10-9', 'svea64-1', 'svea100-0']} 
   std::string assembly_type;
 
-  #pragma cyclus var {'default':0.72,\
-                      'units':'g/cc',\
+// 'default':0.72,
+  #pragma cyclus var {"units":"g/cc",\
                       "tooltip":"Moderator Density",\
                       "doc":"Reactor moderator density",\
                       "uilabel":"Moderator Density",\
                       "userlevel":1}
   double mod_density;
-/*
-  #pragma cyclus var {'default':0,\
-                      "tooltip":"Burnup",\
-                      "doc":"Reactor burnup (MWd/tHM)",\
-                      "uilabel":"Burnup",\
-                      "userlevel":1}
-  double burnup;
-*/
+
   /// Level 3 Parameters
 
   // should be hidden in ui (internal only). 

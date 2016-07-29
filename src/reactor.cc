@@ -6,7 +6,12 @@
 namespace cyborg {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-reactor::reactor(cyclus::Context* ctx) : cyclus::Facility(ctx), cycle_time(1), decom(false) {
+reactor::reactor(cyclus::Context* ctx) : cyclus::Facility(ctx), decom(false), 
+                                         discharged(false), refreshSpentRecipe(true),
+                                         power_cap(0.0), assem_size(0.0),
+                                         n_assem_batch(0), n_assem_core(0),
+                                         enrichment(0.0),
+                                         fresh_fuel("fresh_fuel"), spent_fuel("spent_fuel")  {
     
 }
 
@@ -18,83 +23,115 @@ std::string reactor::str() {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void reactor::EnterNotify(){
     Facility::EnterNotify();
-    buy_policy.Init(this, &fresh, std::string("fresh_fuel"));
+    buy_policy.Init(this, &fresh, fresh_fuel);
     buy_policy.Set(fresh_fuel).Start();
 
-    sell_policy.Init(this, &spent, std::string("spent_fuel"));
+    sell_policy.Init(this, &spent, spent_fuel);
     sell_policy.Set(spent_fuel).Start();
-    //.Set(spent,spent_fuel).Start();
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void reactor::Tick() {
-    if (!decom) {
-        //fuel.capacity(fuel_capacity*1000); // store fuel capacity in kg
-        //fresh_inventory.capacity(fuel.space()*1000); // store inventory in kg
-        // Load Fuel
-        Load_();
-        // Transmute & Discharge if necessary     
-        //std::cerr << "cycle_time = " << cycle_time << "  cycle_length = " << cycle_length << std::endl;
-        if (cycle_time % cycle_length == 0 && cycle_time != reactor_lifetime) {
-            std::cerr << "Discharging " << n_assem_batch << " assemblies" << std::endl;
-            Discharge_(n_assem_batch);
-        }
-        else if (cycle_time == reactor_lifetime){
-            Discharge_(n_assem_core);
-            decom = true;
-        }
+  std::cerr << "Calling Tick(): decom = " << decom << std::endl;
+  if (!decom) {
+    // Transmute & Discharge if necessary     
+    //std::cerr << "cycle_time = " << cycle_time << "  cycle_length = " << cycle_length << std::endl;
+    if (cycle_step == cycle_time) {
+      //Discharge_(n_assem_batch);
+      std::cerr << "Calling transmute" << std::endl;
+      Transmute_();
     }
-    else {
-        // Should ideally push out all fresh fuel first...
-        fresh.capacity(0);
+    if(cycle_step >= cycle_time && !discharged) {
+      discharged = Discharge_();
+      std::cerr << "Called discharge: result = " << discharged << std::endl;
     }
+  }
+  else {
+    // Should ideally push out all fresh fuel first...
+    fresh.capacity(0);
+  }
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void reactor::Tock() {
-    // Only continue to operate if not exceeding reactor lifetime
-    if (!decom) {
-        
-        ++cycle_time;
+  if (retired()) {
+    return;
+  }
+
+  if (cycle_step >= cycle_time + refuel_time) {   
+    if( core.count() == n_assem_core) {
+      // Restart once the core is fully reloaded
+      discharged = false;
+      cycle_step = 0;
     }
-    //std::cerr << "Finished Tock()" << std::endl;
+    else if(discharged) { 
+      // Only load core once we've fully cleared out the fully-burnt assemblies
+      Load_();
+    }
+  }
+
+  if (cycle_step == 0 && core.count() == n_assem_core) {
+    Record("CYCLE_START", "");
+  }
+
+  if (cycle_step >= 0 && cycle_step < cycle_time &&
+      core.count() == n_assem_core) {
+    cyclus::toolkit::RecordTimeSeries<cyclus::toolkit::POWER>(this, power_cap);
+  } else {
+    cyclus::toolkit::RecordTimeSeries<cyclus::toolkit::POWER>(this, 0);
+  }
+
+  // "if" prevents starting cycle after initial deployment until core is full
+  // even though cycle_step is its initial zero.
+  if (cycle_step > 0 || core.count() == n_assem_core) {
+    ++cycle_step;
+  }
+  
+  //std::cerr << "Finished Tock()" << std::endl;
 }
 
 
 void reactor::Load_() {
   int n = std::min(n_assem_core - core.count(), fresh.count());
+/*
+  std::cerr << "Attempting to load: " << n << " assemblies." << std::endl
+            << "fresh.count() = " << fresh.count() << "  core.count = " << core.count() << std::endl
+            << "n_assem_core = " << n_assem_core << "  n_assem_batch = " << n_assem_batch << std::endl;
+*/
   if (n == 0) {
     return;
   }
-  //std::cerr << "n_assem_core = " << n_assem_core << "  core.count() = " << core.count() << std::endl; 
+
   std::stringstream ss;
-  //ss << n << " assemblies";
+  ss << n << " assemblies";
   Record("LOAD", ss.str());
   //std::cerr << "LOADING " << ss.str() << std::endl;
   core.Push(fresh.PopN(n));
   //std::cerr << "PUSHED " << ss.str() << std::endl;
 }
 
+bool reactor::Discharge_() { return Discharge_(this->n_assem_batch); }
 
-void reactor::Discharge_(int n_assem_discharged) {
+bool reactor::Discharge_(int n_assem_discharged) {
 
-    //cyclus::Material::Ptr to_burn = core.Pop(fuel.capacity()/core_fraction);
+  int npop = std::min(n_assem_batch, core.count());
+  if (n_assem_spent - spent.count() < npop) {
+    Record("DISCHARGE", "failed");
+    return false;  // not enough room in spent buffer
+  }
 
-    // Transmute material ready for discharge
-    // Assume even power between cycles (for now)
-    /*
-    std::cerr << "  power_cap (MWt): " << power_cap 
-              << "  n_assem_discharged: " << n_assem_discharged << std::endl;
-    */
-    Transmute(n_assem_discharged);
-     
-    // Discharge fuel to spent fuel buffer
-    spent.Push(core.PopN(n_assem_discharged));
+  std::stringstream ss;
+  ss << npop << " assemblies";
+  Record("DISCHARGE", ss.str());
+      
+  // Discharge fuel to spent fuel buffer
+  spent.Push(core.PopN(n_assem_discharged));
+  return true;
 }
 
-void reactor::Transmute() { Transmute(n_assem_batch); }
+void reactor::Transmute_() { Transmute_(n_assem_batch); }
 
-void reactor::Transmute(int n_assem) {
+void reactor::Transmute_(int n_assem) {
   using cyclus::toolkit::MatVec;
 
   MatVec old = core.PopN(std::min(n_assem, core.count()));
@@ -113,10 +150,10 @@ void reactor::Transmute(int n_assem) {
  *       come about, push this onto the stack?
  * TODO: Handle multiple depletion recipes, assuming non-homogeneous batches?
  */
-
+  
   if(refreshSpentRecipe) {
      //TODO: Handle cycle powers by batch, send in powers vector
-     //double cyclePower = power_cap/core_fraction*1E6; // convert power from MWt => W
+
      // Calculate total thermal power of depleted assemblies; 
      // Convert from MWt => W
      double cyclePower = power_cap * static_cast<double>(n_assem_batch)/static_cast<double>(n_assem_core) * 1E6;
@@ -135,6 +172,7 @@ void reactor::Transmute(int n_assem) {
      bool isHomogenous = (std::adjacent_find( matIDs.begin(), matIDs.end(), std::not_equal_to<int>() ) == matIDs.end());
      // FOR NOW: Assume everything in the batch is the same composition
      spentFuelComp = this->Deplete_(old[0],cyclePower);
+     refreshSpentRecipe = false;  //TODO: Add code to check when this needs to be turned back on
   }
   for (int i = 0; i < old.size(); i++) {
      // TODO: Add in multiple spent_comps, map assemblies to compositions each time we do a depletion...
@@ -180,13 +218,13 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double pow
     //for(size_t i=1; i <= round(this->fuel_capacity*1.E3/mat->quantity()); ++i) {
     for(size_t i=1; i <= round(this->n_assem_core / this->n_assem_batch); ++i) {
        // Cycle timestep is in months; use years for ORIGEN for simplicity
-       dp_time.push_back(cycle_length*i*1.0/12.0);        
+       dp_time.push_back(static_cast<double>(cycle_time*i)/12.0);        
        // SES TODO: Eventually handle non-uniform cycle powers
        dp_pow.push_back(power);
        //std::cerr << "Pushing back time: " << cycle_length*i*1.0/12.0 << "  power: " << power << std::endl;
        
        // Decay fuel during reload
-       dp_time.push_back(dp_time.back() + refuel_time/12.0);
+       dp_time.push_back(dp_time.back() + static_cast<double>(refuel_time)/12.0);
        dp_pow.push_back(0.0);
     }
     react.set_time_units("y");

@@ -19,13 +19,15 @@ class ReactorTest : public ::testing::Test {
   void SetUpReactor();
 
   void set_cycle_time(const int);
+  void set_cycle_step(const int);
   void TestInitState(cyborg::reactor* fac);
 
   std::string in_r1, in_c1, out_c1;
   double power_cap, core_capacity, enrichment, mod_density;
-  int cycle_length, reactor_lifetime;
+  int cycle_time, reactor_lifetime;
   int n_assem_core, n_assem_spent, n_assem_batch; 
   double assem_mass;
+  bool refresh_recipe;
 };
 } // namespace reactor
 #endif // REACTOR_TESTS_H_
