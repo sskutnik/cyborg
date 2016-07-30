@@ -21,15 +21,14 @@ void ReactorTest::InitParameters(){
   in_r1 = "in_r1";
   in_c1 = "in_c1";
   out_c1 = "out_c1";
-  power_cap = 500.0; // MWt
-  core_capacity = 60.0; // MT
+  power_cap = 800.0; // MWt
   cycle_time = 12; // months
   reactor_lifetime = 480;
   enrichment = 4.0;
   mod_density = 0.0; // Setting to 0 to test auto-interpolation of density
-  n_assem_core = 120;
+  n_assem_core = 75;
   n_assem_spent = 0;
-  n_assem_batch = 40;
+  n_assem_batch = 25;
   assem_mass = 325.0; // kg 
   refresh_recipe = true;
  
@@ -50,6 +49,7 @@ void ReactorTest::SetUpReactor(){
   src_facility_->reactor_lifetime = reactor_lifetime;
   src_facility_->enrichment = enrichment;
   src_facility_->mod_density = mod_density;
+  src_facility_->assem_size = assem_mass;
   src_facility_->core.capacity(assem_mass*n_assem_core);
   src_facility_->spent.capacity(3.0*assem_mass*n_assem_core);
   src_facility_->fresh.capacity(2.0*assem_mass*n_assem_core);

@@ -37,13 +37,12 @@ void reactor::Tick() {
     // Transmute & Discharge if necessary     
     //std::cerr << "cycle_time = " << cycle_time << "  cycle_length = " << cycle_length << std::endl;
     if (cycle_step == cycle_time) {
-      //Discharge_(n_assem_batch);
       std::cerr << "Calling transmute" << std::endl;
       Transmute_();
     }
     if(cycle_step >= cycle_time && !discharged) {
       discharged = Discharge_();
-      std::cerr << "Called discharge: result = " << discharged << std::endl;
+      //std::cerr << "Called discharge: result = " << discharged << std::endl;
     }
   }
   else {
@@ -141,10 +140,7 @@ void reactor::Transmute_(int n_assem) {
     core.Push(core.PopN(core.count() - old.size()));
   }
  
-  std::stringstream ss;
-  ss << old.size() << " assemblies";
-  Record("TRANSMUTE", ss.str());
-  /*
+ /*
  * TODO: Call recipe update if needed; otherwise, use old recipe
  * TODO: Alternative: Generate new recipe every time new fuel / power / etc. conditions
  *       come about, push this onto the stack?
@@ -171,20 +167,25 @@ void reactor::Transmute_(int n_assem) {
 */     
      bool isHomogenous = (std::adjacent_find( matIDs.begin(), matIDs.end(), std::not_equal_to<int>() ) == matIDs.end());
      // FOR NOW: Assume everything in the batch is the same composition
-     spentFuelComp = this->Deplete_(old[0],cyclePower);
+     spentFuelComp = this->Deplete_(old[0],n_assem_batch,cyclePower);
      refreshSpentRecipe = false;  //TODO: Add code to check when this needs to be turned back on
   }
   for (int i = 0; i < old.size(); i++) {
      // TODO: Add in multiple spent_comps, map assemblies to compositions each time we do a depletion...
      old[i]->Transmute(spentFuelComp);
   }
-
+  std::stringstream ss;
+  ss << old.size() << " assemblies" << " to discharge burnup " << this->burnup << " MWd/MTHM";
+  Record("TRANSMUTE", ss.str());
+  std::cerr << ss.str() << std::endl;
 }
 
 
 //TODO - Separate transmute behaviors from ORIGEN behaviors
-cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double power) {
+cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, int n_assem, double power) {
     
+    // TODO: Store interface as a persistent member but free unneeded components after deplete?
+    // TODO: Store burnup somewhere and record discharge burnup each time Transmute is called?
     OrigenInterface::cyclus2origen react;
      
     // Set ORIGEN library path
@@ -216,9 +217,9 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double pow
     // Number of cycles is assumed to be proportional to core fraction per batch
     // i.e., 1/3 fraction => 3 cycles
     //for(size_t i=1; i <= round(this->fuel_capacity*1.E3/mat->quantity()); ++i) {
-    for(size_t i=1; i <= round(this->n_assem_core / this->n_assem_batch); ++i) {
+    for(size_t i=0; i < round(this->n_assem_core / this->n_assem_batch); ++i) {
        // Cycle timestep is in months; use years for ORIGEN for simplicity
-       dp_time.push_back(static_cast<double>(cycle_time*i)/12.0);        
+       dp_time.push_back(static_cast<double>(cycle_time)/12.0 + dp_time.back());        
        // SES TODO: Eventually handle non-uniform cycle powers
        dp_pow.push_back(power);
        //std::cerr << "Pushing back time: " << cycle_length*i*1.0/12.0 << "  power: " << power << std::endl;
@@ -255,14 +256,16 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double pow
     // Convert each isotopic mass to absolute isotopic mass in kg (from unnormalized mass fraction)
     double massNorm = std::accumulate(mass_fraction.begin(),mass_fraction.end(), 0.0);    
     std::transform(mass_fraction.begin(), mass_fraction.end(), norm_mass.begin(), 
-                   std::bind1st(std::multiplies<double>(),mat->quantity()/massNorm));
-
+                   std::bind1st(std::multiplies<double>(),mat->quantity()/massNorm * n_assem));
     //for(auto mass : norm_mass) { std::cerr << "Normed mass: " << mass/(mat->quantity()) <<  std::endl; }
     react.set_materials(in_ids,norm_mass);
     
 
     // Run Calculation
     react.solve();
+
+    // Store burnup (units of MWd/MTU)
+    this->burnup = react.burnup_last();  
 
     // Get materials and convert nuclide ids back to Cyclus format
     std::vector<int> org_id;
@@ -288,11 +291,6 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, double pow
     }
     cyclus::Composition::Ptr comp_out = cyclus::Composition::CreateFromAtom(v);
     return comp_out;
-/*
-    mat->Transmute(comp_out);
-
-    return mat;
-*/
 }
 
 void reactor::Record(std::string name, std::string val) {

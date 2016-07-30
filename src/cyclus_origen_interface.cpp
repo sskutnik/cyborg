@@ -186,9 +186,11 @@ void cyclus2origen::set_materials(const std::vector<int> &ids, const std::vector
   Origen::SP_Material mat = Origen::SP_Material(new Origen::Material(b_lib,name,id,b_vol));
   mat->set_concs_at(*b_concs,0);
 
-//  std::cerr << "Material::initial_mass() = " << mat->initial_mass() << " grams.\n";
-//  std::cerr << "Material::initial_hm_mass() = " << mat->initial_hm_mass() << " grams.\n";
+  //std::cerr << "b_concs: units = " << b_concs->units()  << "  sum_hm = " << b_concs->sum_hm() << std::endl;
+  //std::cerr << "Material::initial_mass() = " << mat->initial_mass() << " grams.\n";
+  //std::cerr << "Material::initial_hm_mass() = " << mat->initial_hm_mass() << " grams.\n";
 
+  //TODO: Why do we need two Origen::Material objects...?
   b_mat = mat; // Used in prob_spec_lib function.
   prob_spec_lib(b_lib,b_times,b_fluxes,b_powers); // Takes b_lib and interpolates to new burnups based on b_times and b_powers.
   auto mat2 = std::make_shared<Origen::Material>(b_lib,name,id,b_vol); // Generates new material based on b_lib from prob_spec_lib
@@ -634,9 +636,8 @@ double cyclus2origen::burnup_at(const int stepNum) const {
          << stepNum << " falls outside the bounds [0," << b_mat->nsteps()-1 << ")!\n";
       throw ValueError(ss.str());
       return -1.0;
-   }
-   // +1 due to burnup_at incremented by time position => +1 gives eos
-   return b_mat->burnup_at(stepNum + 1); 
+   }   
+   return b_mat->burnup_at(stepNum ); 
 }
 
 std::vector<double> cyclus2origen::get_burnups() const { 

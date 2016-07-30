@@ -85,9 +85,10 @@ class reactor : public cyclus::Facility,
   bool Discharge_(const int);
 
   /// Deplete the material for this cycle
-  /// @param mat   The material to be depleted 
+  /// @param mat   The material to be depleted
+  //  @param n_assem Number of assemblies to be depleted (using assem_size) 
   /// @param power Depletion power of the material in MW
-  cyclus::Composition::Ptr Deplete_(cyclus::Material::Ptr, double);
+  cyclus::Composition::Ptr Deplete_(cyclus::Material::Ptr, const int, const double);
 
   bool decom;
 
@@ -112,37 +113,42 @@ class reactor : public cyclus::Facility,
 
   #pragma cyclus var {"tooltip":"Input fuel commodity",\
                       "doc":"Fuel name accepted by this reactor",\
-                      "uitype":"incommodity","uilabel":"Fuel Commodity"}
+                      "uitype":"incommodity","uilabel":"Fuel Commodity", \
+                      "userlevel":1}
   std::string fresh_fuel;
   // Add multiple fuel options later
 
   #pragma cyclus var {"tooltip":"Input fuel recipe",\
                       "doc":"Fuel recipe accepted by reactor",\
-                      "uitype":"recipe","uilabel":"Fuel Recipe"}
+                      "uitype":"recipe","uilabel":"Fuel Recipe",\
+                      "userlevel":1}
   std::string fuel_recipe;                      
 
   #pragma cyclus var {"tooltip":"Spent fuel commodity",\
                       "doc":"Name of spent fuel commodity",\
-                      "uitype":"outcommodity","uilabel":"Spent Fuel Commodity"}
+                      "uitype":"outcommodity","uilabel":"Spent Fuel Commodity",\
+                      "userlevel":1}
   std::string spent_fuel;
 
   #pragma cyclus var {"tooltip":"Reactor power name",\
                       "doc":"Name of commodity reactor produces",\
-                      "uilabel":"Power Name"}
+                      "uilabel":"Power Name",\
+                      "userlevel":1}
   std::string power_name;
 
   #pragma cyclus var {"tooltip":"Thermal Power capacity",\
                       "doc":"Reactor thermal power capacity (MW)",\
                       "units":"MW",\
-                      "uilabel":"Power Capacity"}
+                      "uilabel":"Power Capacity",\
+                      "userlevel":1}
   double power_cap;
 
  //////////// inventory and core params ////////////
   #pragma cyclus var { \
-    "doc": "Mass (kg) of a single assembly.",   \
+    "doc": "Mass (kg) of a single assembly", \
     "uilabel": "Assembly Mass", \
     "units": "kg", \
-  }
+    "userlevel":1 }
   double assem_size;
 
   #pragma cyclus var { \
@@ -151,13 +157,13 @@ class reactor : public cyclus::Facility,
            "This is the number of assemblies discharged from the core fully " \
            "burned each cycle."                                         \
            "Batch size is equivalent to ``n_assem_batch / n_assem_core``.", \
-  }
+    "userlevel":1 }
   int n_assem_batch;
 
   #pragma cyclus var { \
     "uilabel": "Number of Assemblies in Core", \
     "doc": "Number of assemblies that constitute a full core.", \
-  }
+    "userlevel":1 }
   int n_assem_core;
 
   #pragma cyclus var { \
@@ -165,7 +171,7 @@ class reactor : public cyclus::Facility,
     "uilabel": "Minimum Fresh Fuel Inventory", \
     "units": "assemblies", \
     "doc": "Number of fresh fuel assemblies to keep on-hand if possible.", \
-  }
+    "userlevel":1 }
   int n_assem_fresh;
 
   #pragma cyclus var { \
@@ -174,7 +180,7 @@ class reactor : public cyclus::Facility,
     "units": "assemblies", \
     "doc": "Number of spent fuel assemblies that can be stored on-site before" \
            " reactor operation stalls.", \
-  }
+    "userlevel":1 }
   int n_assem_spent;
 
 
@@ -184,7 +190,7 @@ class reactor : public cyclus::Facility,
             "time) in time steps.", \
      "uilabel": "Cycle Length", \
      "units": "time steps", \
-  }
+     "userlevel":1 }
   int cycle_time;
 
   #pragma cyclus var { \
@@ -192,7 +198,7 @@ class reactor : public cyclus::Facility,
             " the end of a cycle and the start of the next cycle.", \
      "uilabel": "Refueling Outage Duration", \
      "units": "time steps", \
-  }
+     "userlevel":1 }
   int refuel_time;
 
   #pragma cyclus var { \
@@ -201,41 +207,36 @@ class reactor : public cyclus::Facility,
             " Only set this if you know what you are doing", \
      "uilabel": "Time Since Start of Last Cycle", \
      "units": "time steps", \
-  }
+     "userlevel":1 }
   int cycle_step;
 
-/*
-  #pragma cyclus var {'default': 0.90,\
-                      "tooltip":"Capacity factor (%)",\
-                      "doc":"Reactor capacity factor; governs downtime between cycles",\
-                      "uilabel":"Capacity Factor"}
-  double cap_factor; // default to 90% capacity factor
-*/
   #pragma cyclus var {'default': 480,\
                       "tooltip":"Reactor lifetime",\
                       "doc":"Reactor lifetime",\
                       "uilabel":"Reactor Lifetime",\
-                      "units":"time steps"}
+                      "units":"time steps",\
+                      "userlevel":1}
   int reactor_lifetime; 
-
-  #pragma cyclus var {"tooltip":"Path to ORIGEN Libraries",\
-                      "doc":"Path to ORIGEN Libraries",\
-                      "uilabel":"Path to ORIGEN Libraries"}
-  // Default set by environment / build argument in orglib_default_location.h
-  std::string lib_path = ORIGEN_LIBS_DEFAULT; 
   
   #pragma cyclus var {"tooltip":"Fresh fuel enrichment",\
                       "doc":"Fresh fuel enrichment",\
-                      "uilabel":"Fresh Fuel Enrichment"}
+                      "uilabel":"Fresh Fuel Enrichment",\
+                      "userlevel":1}   
   double enrichment;
 
   /// Level 2 Parameters
+  #pragma cyclus var {"tooltip":"Path to ORIGEN Libraries",\
+                      "doc":"Path to ORIGEN Libraries",\
+                      "uilabel":"Path to ORIGEN Libraries",\
+                      "userlevel":2}
+  // Default set by environment / build argument in orglib_default_location.h
+  std::string lib_path = ORIGEN_LIBS_DEFAULT; 
 
   #pragma cyclus var {'default':"w17x17",\
                       'tooltip':"Assembly type",\
                       'doc':"ORIGEN library type to be used",\
                       'uilabel':"Assembly Type",\
-                      'userlevel':1,\
+                      'userlevel':2,\
                       'categorical':['ce_facility14x14', 'ce16x16', 'w14x14', 's14x14', 'w15x15', \
                       'w17x17', 'w17x17_ofa', 'ge7x7-0', 'ge8x8-4', 'abb8x8-1', 'ge9x9-7', 'ge10x10-8', \
                       'atrium9-9', 'atrium10-9', 'svea64-1', 'svea100-0']} 
@@ -246,7 +247,7 @@ class reactor : public cyclus::Facility,
                       "tooltip":"Moderator Density",\
                       "doc":"Reactor moderator density",\
                       "uilabel":"Moderator Density",\
-                      "userlevel":1}
+                      "userlevel":2}
   double mod_density;
 
   /// Level 3 Parameters
@@ -265,6 +266,13 @@ class reactor : public cyclus::Facility,
   }
   bool refreshSpentRecipe;
 
+
+  // should be hidden in ui (internal only). 
+  // State variable to store the burnup of the current power history
+  #pragma cyclus var {"default": 0.0, "doc": "This should NEVER be set manually",\
+                      "internal": True \
+  }
+  double burnup;
 
   /// Material Flow Parameters                                                      
                                                                      
