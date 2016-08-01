@@ -1,5 +1,6 @@
 #include "cyclus_origen_interface.h"
 #include <math.h>
+#include <boost/algorithm/string.hpp>
 #include "error.h"
 #include "Origen/Core/dc/ConcentrationConverter.h"
 #include "Origen/Core/fn/io.h"
@@ -18,14 +19,16 @@ void cyclus2origen::set_lib_names(const std::vector<std::string> &lib_names){
 
 void cyclus2origen::set_lib_path(const std::string lib_path){
   using cyclus::IOError;
-  auto dr = opendir(lib_path.c_str());
+  std::string tmp_path = boost::trim_copy(lib_path);
+
+  auto dr = opendir(tmp_path.c_str());
   if(dr==NULL){
     std::stringstream ss;
-    ss << "Cyborg::reactor::set_lib_path(" << __LINE__ << ") : Directory provided is not a directory!\n";
+    ss << "Cyborg::reactor::set_lib_path(" << __LINE__ << ") : File '" << tmp_path << "' is not a directory!\n";
     throw IOError(ss.str());
   }
   closedir(dr);
-  b_lib_path=lib_path;
+  b_lib_path=tmp_path;
 }
 
 void cyclus2origen::add_lib_names(const std::vector<std::string> &lib_names){

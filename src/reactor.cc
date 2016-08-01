@@ -1,4 +1,5 @@
 #include "reactor.h"
+#include "orglib_default_location.h"
 #include "cyclus_origen_interface.h"
 #include "error.h"
 
@@ -6,12 +7,47 @@
 namespace cyborg {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// pragmas
+
+#pragma cyclus def schema cyborg::reactor
+
+#pragma cyclus def annotations cyborg::reactor
+
+#pragma cyclus def initinv cyborg::reactor
+
+#pragma cyclus def snapshotinv cyborg::reactor
+
+#pragma cyclus def infiletodb cyborg::reactor
+
+#pragma cyclus def snapshot cyborg::reactor
+
+#pragma cyclus def clone cyborg::reactor
+
+//- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+void reactor::InitFrom(reactor* m) {
+#pragma cyclus impl initfromcopy cyborg::reactor
+ cyclus::toolkit::CommodityProducer::Copy(m);
+}
+
+//- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+void reactor::InitFrom(cyclus::QueryableBackend* b) {
+  #pragma cyclus impl initfromdb cyborg::reactor
+
+  namespace tk = cyclus::toolkit;
+  tk::CommodityProducer::Add(tk::Commodity(power_name),
+                             tk::CommodInfo(power_cap, power_cap));
+
+
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 reactor::reactor(cyclus::Context* ctx) : cyclus::Facility(ctx), decom(false), 
-                                         discharged(false), refreshSpentRecipe(true),
+                                         refreshSpentRecipe(true),
                                          power_cap(0.0), assem_size(0.0),
                                          n_assem_batch(0), n_assem_core(0),
-                                         enrichment(0.0),
-                                         fresh_fuel("fresh_fuel"), spent_fuel("spent_fuel")  {
+                                         enrichment(0.0), lib_path(ORIGEN_LIBS_DEFAULT),
+                                         spent_fuel("spent_fuel")  {
+  cyclus::Warn<cyclus::EXPERIMENTAL_WARNING>("The CyBORG reactor is highly experimental.");
     
 }
 
@@ -22,27 +58,68 @@ std::string reactor::str() {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void reactor::EnterNotify(){
-    Facility::EnterNotify();
-    buy_policy.Init(this, &fresh, fresh_fuel);
-    buy_policy.Set(fresh_fuel).Start();
 
-    sell_policy.Init(this, &spent, spent_fuel);
-    sell_policy.Set(spent_fuel).Start();
+  cyclus::Facility::EnterNotify();
+
+  // Check for consistency in fuel inputs first
+  size_t n = fuel_incommods.size();
+  std::stringstream ss;
+  if(fuel_prefs.size() > 0 && fuel_prefs.size() != n) {
+     ss << "cyborg::reactor has " << fuel_prefs.size() 
+        << " fuel preferences, expected " << n << "\n";
+  }
+  if(fuel_recipes.size() != n) {
+     ss << "cycborg::reactor has " << fuel_recipes.size() 
+        << " input recipes, expected " << n << "\n";
+  }
+  if(ss.str().size() > 0) {
+     throw cyclus::ValueError(ss.str());
+  }
+
+  // Initialize fuel_prefs to default values if not specified by user
+  if (fuel_prefs.size() == 0) {
+     for (size_t i=0; i < fuel_incommods.size(); ++i) {
+        this->fuel_prefs.push_back(cyclus::kDefaultPref);
+     }
+  }
+
+  cyclus::CompMap v;
+  cyclus::Composition::Ptr comp, nullComp;
+  // dummy comp, use in_recipe if provided
+  nullComp = cyclus::Composition::CreateFromAtom(v);
+
+  //buy_policy.Init(this, &fresh, fuel_incommods);
+  buy_policy.Init(this, &fresh, "fresh fuel", this->fuel_capacity(), 1.0, 1.0, this->assem_size);
+  for(size_t i=0; i < fuel_incommods.size(); ++i) {
+     // TODO: Implement preference specification for fuel_incommods           
+     comp = nullComp; 
+     if (fuel_recipes[i] != "") {
+        comp = context()->GetRecipe(fuel_recipes[i]); 
+     }   
+     buy_policy.Set(fuel_incommods[i], comp);
+  }
+  buy_policy.Start();   
+
+  sell_policy.Init(this, &spent, spent_fuel);
+  sell_policy.Set(spent_fuel);
+  sell_policy.Start();
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void reactor::Tick() {
-  std::cerr << "Calling Tick(): decom = " << decom << std::endl;
   if (!decom) {
     // Transmute & Discharge if necessary     
     //std::cerr << "cycle_time = " << cycle_time << "  cycle_length = " << cycle_length << std::endl;
     if (cycle_step == cycle_time) {
-      std::cerr << "Calling transmute" << std::endl;
       Transmute_();
     }
     if(cycle_step >= cycle_time && !discharged) {
       discharged = Discharge_();
       //std::cerr << "Called discharge: result = " << discharged << std::endl;
+    }
+    if(discharged) { 
+      // Only load core once we've fully cleared out the fully-burnt assemblies
+      Load_();
     }
   }
   else {
@@ -56,17 +133,13 @@ void reactor::Tock() {
   if (retired()) {
     return;
   }
-
+  //std::cerr << "TOCK: discharged = " << discharged << std::endl;
   if (cycle_step >= cycle_time + refuel_time) {   
     if( core.count() == n_assem_core) {
       // Restart once the core is fully reloaded
       discharged = false;
       cycle_step = 0;
-    }
-    else if(discharged) { 
-      // Only load core once we've fully cleared out the fully-burnt assemblies
-      Load_();
-    }
+    }    
   }
 
   if (cycle_step == 0 && core.count() == n_assem_core) {
@@ -133,20 +206,21 @@ void reactor::Transmute_() { Transmute_(n_assem_batch); }
 void reactor::Transmute_(int n_assem) {
   using cyclus::toolkit::MatVec;
 
+  // Instead of doing a PopN for all assemblies, peek at comps and pop until we've hit the right # of assemblies?
   MatVec old = core.PopN(std::min(n_assem, core.count()));
   core.Push(old);
   if (core.count() > old.size()) {
     // rotate untransmuted mats back to back of buffer
     core.Push(core.PopN(core.count() - old.size()));
   }
- 
+   
  /*
  * TODO: Call recipe update if needed; otherwise, use old recipe
  * TODO: Alternative: Generate new recipe every time new fuel / power / etc. conditions
  *       come about, push this onto the stack?
  * TODO: Handle multiple depletion recipes, assuming non-homogeneous batches?
  */
-  
+
   if(refreshSpentRecipe) {
      //TODO: Handle cycle powers by batch, send in powers vector
 
@@ -170,6 +244,10 @@ void reactor::Transmute_(int n_assem) {
      spentFuelComp = this->Deplete_(old[0],n_assem_batch,cyclePower);
      refreshSpentRecipe = false;  //TODO: Add code to check when this needs to be turned back on
   }
+  if(!spentFuelComp) {
+     throw cyclus::StateError("Spent fuel composition is not set!");
+  } 
+
   for (int i = 0; i < old.size(); i++) {
      // TODO: Add in multiple spent_comps, map assemblies to compositions each time we do a depletion...
      old[i]->Transmute(spentFuelComp);
