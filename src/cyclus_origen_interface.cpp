@@ -620,7 +620,7 @@ void cyclus2origen::get_ids_zzzaaai(std::vector<int> &ids_out) const{
 }
 
 double cyclus2origen::burnup_last() const {    
-   return this->burnup_at(b_mat->nsteps()-1);
+   return this->burnup_at(b_mat->nsteps());
 }
 
 double cyclus2origen::burnup_at(const int stepNum) const {
@@ -633,10 +633,10 @@ double cyclus2origen::burnup_at(const int stepNum) const {
      throw StateError(ss.str());
      return -1.0;
    }
-   if(stepNum < 0 || stepNum >= b_mat->nsteps()) {
+   if(stepNum < 0 || stepNum > b_mat->nsteps()) {
       std::stringstream ss;
       ss << "Cyborg::reactor::burnup_at(" << __LINE__ << ") : Step requested " 
-         << stepNum << " falls outside the bounds [0," << b_mat->nsteps()-1 << ")!\n";
+         << stepNum << " falls outside the bounds [0," << b_mat->nsteps() << ")!\n";
       throw ValueError(ss.str());
       return -1.0;
    }   
