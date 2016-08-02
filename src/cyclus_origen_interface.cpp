@@ -763,6 +763,44 @@ void cyclus2origen::prob_spec_lib(Origen::SP_Library lib, const std::vector<doub
   b_lib = lib->interpolate_Interp1D(burnups);
 }
 
+const std::string cyclus2origen::get_tag_manager_string() const
+{
+  if(b_mat->nsteps()==0)
+  {
+    std::stringstream ss;
+    ss << "Cyborg::reactor::get_tag_manager_string(" << __LINE__ << ") : Depletion calculation has not yet occurred.\n";
+    throw cyclus::StateError(ss.str());
+  }
+
+  Origen::TagManager tm;
+  b_lib->get_tag_manager(tm);
+
+  std::stringstream times;
+  for(auto time : b_times)
+  {
+    times << time << ",";
+  }
+
+  std::string times_val = times.str();
+  times_val.pop_back();
+  std::stringstream times_name;
+  times_name << "Times (" << Origen::Time::name(b_timeUnits) << ")";
+  tm.setIdTag(times_name.str(),times_val);
+
+  std::stringstream powers;
+  for(auto power : b_powers)
+  {
+    powers << power << ",";
+  }
+
+  std::string powers_val = powers.str();
+  powers_val.pop_back();
+  std::stringstream powers_name;
+  powers_name << "Powers (" << Origen::Power::name(b_powerUnits) << ")";
+  tm.setIdTag(powers_name.str(),powers_val);
+
+  return tm.to_string();
+}
 
 
 }//namespace

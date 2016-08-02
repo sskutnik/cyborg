@@ -346,4 +346,14 @@ TEST_F(OrigenInterfaceTester,resultTest){
   for(size_t i = 0; i < masses_out[numTimes-1].size(); ++i){
     EXPECT_EQ(mass_out[i],masses_out[numTimes-1][i]) << "Disagreement between return of get_masses() and get_masses_final().";
   }
+
+  std::string tm_test = tester.get_tag_manager_string();
+  std::stringstream tm_ref;
+  tm_ref << "{\n   \"Assembly Type\" : \"ce14x14\",\n" << \
+               "   \"Enrichment\" : 0.040,\n" << \
+               "   \"Fuel Type\" : \"Uranium\",\n" << \
+               "   \"Moderator Density\" : 0.73320,\n" << \
+               "   \"Powers (W)\" : \"1e+07,2e+07,3e+07\",\n" << \
+               "   \"Times (d)\" : \"0,100,200,300\"\n}\n";
+  EXPECT_EQ(tm_ref.str(),tm_test) << "Didn't get the tag manager string comparison right...";
 }
