@@ -2,9 +2,7 @@
 #define CYCLUS_CYBORG_REACTOR_H_
 
 #include <string>
-
 #include "cyclus.h"
-#include "orglib_default_location.h"
 
 namespace cyborg {
 
@@ -239,12 +237,16 @@ class reactor : public cyclus::Facility,
                       "userlevel":1}   
   double enrichment;
 
-  /// Level 2 Parameters
-  #pragma cyclus var {"tooltip":"Path to ORIGEN Libraries",\
+  /// Level 2 Parameters  
+  /// Default set by environment / build argument in orglib_default_location.h
+  /// Extract the ORIGEN library default location from auto-generated header, 
+  /// because cycpp needs a string, not a preprocessor directive
+  #pragma cyclus exec import re; orglib_header = re.search('ORIGEN_LIBS_DEFAULT\s+\"(.*)\"', open('cyborg/orglib_default_location.h','r').read()).group(1)  
+  #pragma cyclus var {'default': orglib_header,\
+                      "tooltip":"Path to ORIGEN Libraries",\
                       "doc":"Path to ORIGEN Libraries",\
                       "uilabel":"Path to ORIGEN Libraries",\
                       "userlevel":2}
-  // Default set by environment / build argument in orglib_default_location.h
   std::string lib_path; 
 
   #pragma cyclus var {'default':"w17x17",\

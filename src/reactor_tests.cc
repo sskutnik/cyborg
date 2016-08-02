@@ -101,7 +101,6 @@ TEST_F(ReactorTest, InitialState) {
      "  <fuel_recipes>  <val>uox</val>  </fuel_recipes>  "
      "  <spent_fuel> used fuel </spent_fuel>  "
      "  <enrichment> 4.0 </enrichment> "
-     "  <lib_path> " ORIGEN_LIBS_DEFAULT " </lib_path>"
      ""
      "  <power_cap>400.0 </power_cap> "
      "  <power_name> Electric LOOOOOOVE </power_name> " 
