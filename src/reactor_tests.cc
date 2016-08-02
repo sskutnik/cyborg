@@ -3,9 +3,19 @@
 #include "agent_tests.h"
 
 using cyborg::reactor;
+using pyne::nucname::id;
+using cyclus::QueryResult;
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 namespace cyborg {
+
+Composition::Ptr c_uox() {
+  cyclus::CompMap m;
+  m[id("u235")] = 0.04;
+  m[id("u238")] = 0.96;
+  return Composition::CreateFromMass(m);
+};
+
 
 void ReactorTest::SetUp() {
   src_facility_ = new cyborg::reactor(tc_.get());
@@ -18,8 +28,8 @@ void ReactorTest::TearDown() {
 }
 
 void ReactorTest::InitParameters(){
-  in_r1 = "in_r1";
-  in_c1 = "in_c1";
+  in_r1 = std::vector<std::string>(1,"in_r1");
+  in_c1 = std::vector<std::string>(1,"in_c1");
   out_c1 = "out_c1";
   power_cap = 800.0; // MWt
   cycle_time = 12; // months
@@ -37,12 +47,12 @@ void ReactorTest::InitParameters(){
   v[922380000] = (100.0 - enrichment)/100.0;
   //v[80160000]  = 2.0;
   cyclus::Composition::Ptr recipe = cyclus::Composition::CreateFromMass(v);
-  tc_.get()->AddRecipe(in_r1, recipe);
+  tc_.get()->AddRecipe(in_r1[0], recipe);
 }
 
 void ReactorTest::SetUpReactor(){
-  src_facility_->fuel_recipe = in_r1;
-  src_facility_->fresh_fuel = in_c1;
+  src_facility_->fuel_recipes = in_r1;
+  src_facility_->fuel_incommods = in_c1;
   src_facility_->spent_fuel = out_c1;
   src_facility_->power_cap = power_cap;
   src_facility_->cycle_time = cycle_time;
@@ -60,7 +70,7 @@ void ReactorTest::SetUpReactor(){
   //src_facility_->fuel.capacity(src_facility_->fuel_capacity);
    
   // Create an input material buffer of fresh fuel (255 MTU), i.e., 5 * core capacity
-  cyclus::Composition::Ptr rec = tc_.get()->GetRecipe(in_r1);
+  cyclus::Composition::Ptr rec = tc_.get()->GetRecipe(in_r1[0]);
   cyclus::Material::Ptr recmat = cyclus::Material::CreateUntracked(src_facility_->core.space()*5.0, rec); 
 
   for(size_t i=0; i < n_assem_core*2; ++i) { 
@@ -72,8 +82,8 @@ void ReactorTest::set_cycle_time(const int t) { src_facility_->cycle_time = t; }
 void ReactorTest::set_cycle_step(const int t) { src_facility_->cycle_step = t; }
 
 void ReactorTest::TestInitState(cyborg::reactor* fac){
-  EXPECT_EQ(in_r1, fac->fuel_recipe);
-  EXPECT_EQ(in_c1, fac->fresh_fuel);
+  EXPECT_EQ(in_r1[0], fac->fuel_recipes[0]);
+  EXPECT_EQ(in_c1[0], fac->fuel_incommods[0]);
   EXPECT_EQ(out_c1, fac->spent_fuel);
   EXPECT_EQ(power_cap, fac->power_cap);
   //EXPECT_EQ(fuel_capacity, fac->fuel_capacity);
@@ -86,31 +96,34 @@ void ReactorTest::TestInitState(cyborg::reactor* fac){
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 TEST_F(ReactorTest, InitialState) {
-/*
   std::string config =
-     "  <fuel_inrecipes>  <val>uox</val>      </fuel_inrecipes>  "
-     "  <fuel_incommods>  <val>uox</val>      </fuel_incommods>  "
-     "  <fuel_outcommods> <val>waste</val>    </fuel_outcommods>  "
+     "  <fuel_incommods> <val>LEU</val>  </fuel_incommods>  "
+     "  <fuel_recipes>  <val>uox</val>  </fuel_recipes>  "
+     "  <spent_fuel> used fuel </spent_fuel>  "
+     "  <enrichment> 4.0 </enrichment> "
+     "  <lib_path> " ORIGEN_LIBS_DEFAULT " </lib_path>"
      ""
+     "  <power_cap>400.0 </power_cap> "
+     "  <power_name> Electric LOOOOOOVE </power_name> " 
      "  <cycle_time>1</cycle_time>  "
      "  <refuel_time>0</refuel_time>  "
-     "  <assem_size>1</assem_size>  "
-     "  <n_assem_core>7</n_assem_core>  "
+     "  <assem_size>166.7</assem_size>  "
+     "  <n_assem_fresh>6</n_assem_fresh>"
+     "  <n_assem_core>6</n_assem_core>  "
      "  <n_assem_batch>3</n_assem_batch>  ";
  
   int simdur = 50;
-  cyclus::MockSim sim(cyclus::AgentSpec(":cycamore:Reactor"), config, simdur);
-  sim.AddSource("uox").Finalize();
+  cyclus::MockSim sim(cyclus::AgentSpec(":cyborg:reactor"), config, simdur);
+  sim.AddSource("LEU").Finalize();
   sim.AddRecipe("uox", c_uox());
 
   int id = sim.Run();
 
   QueryResult qr = sim.db().Query("Transactions", NULL);
   // 7 for initial core, 3 per time step for each new batch for remainder
-  //   EXPECT_EQ(7+3*(simdur-1), qr.rows.size());
+  EXPECT_EQ(6+3*(simdur-1), qr.rows.size());
   //
 
-*/
   // Test things about the initial state of the facility here
   TestInitState(src_facility_);
 }

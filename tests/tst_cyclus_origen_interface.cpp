@@ -277,9 +277,10 @@ TEST_F(OrigenInterfaceTester,solveTest){
   ASSERT_NO_THROW(tester.solve());
 
   // Check burnups for each step
-  EXPECT_FLOAT_EQ(tester.burnup_at(0),10000.);
-  EXPECT_FLOAT_EQ(tester.burnup_at(1),30000.);
-  EXPECT_FLOAT_EQ(tester.burnup_at(2),60000.);
+  EXPECT_FLOAT_EQ(tester.burnup_at(0),0.);
+  EXPECT_FLOAT_EQ(tester.burnup_at(1),10000.);
+  EXPECT_FLOAT_EQ(tester.burnup_at(2),30000.);
+  EXPECT_FLOAT_EQ(tester.burnup_at(3),60000.);
   EXPECT_FLOAT_EQ(tester.burnup_last(),60000.);
 
   // TODO: Add tests for other end-of-cycle parameters
@@ -296,7 +297,7 @@ TEST_F(OrigenInterfaceTester,solveTest){
   tester.set_materials(ids,concs);
   ASSERT_NO_THROW(tester.solve());
 
-  EXPECT_FLOAT_EQ(tester.burnup_at(3),70000.);
+  EXPECT_FLOAT_EQ(tester.burnup_at(4),70000.);
   EXPECT_FLOAT_EQ(tester.burnup_last(),70000.);
 
 }
