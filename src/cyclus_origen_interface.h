@@ -406,6 +406,14 @@ public:
     **  \brief  Get vector of all fluxes
     */
     std::vector<double> get_fluxes() const;
+
+    /*!
+    **  \brief  Get a string-representation of the TagManager
+    **          with the power history included as an ID tag.
+    **  \return String-ified TagManager.
+    */
+    const std::string get_tag_manager_string() const;
+
 protected:
 
     /*!
