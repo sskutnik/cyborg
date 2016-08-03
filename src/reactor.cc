@@ -2,6 +2,7 @@
 #include "orglib_default_location.h"
 #include "cyclus_origen_interface.h"
 #include "error.h"
+#include <math.h>
 
 //using cyclus::Composition;
 namespace cyborg {
@@ -45,7 +46,7 @@ reactor::reactor(cyclus::Context* ctx) : cyclus::Facility(ctx), decom(false),
                                          refreshSpentRecipe(true),
                                          power_cap(0.0), assem_size(0.0),
                                          n_assem_batch(0), n_assem_core(0),
-                                         enrichment(0.0), lib_path(ORIGEN_LIBS_DEFAULT),
+                                         lib_path(ORIGEN_LIBS_DEFAULT),
                                          spent_fuel("spent_fuel")  {
   cyclus::Warn<cyclus::EXPERIMENTAL_WARNING>("The CyBORG reactor is highly experimental.");
     
@@ -278,23 +279,51 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, int n_asse
     react.set_id_tag("Assembly Type",assembly_type);
     
     // Set Interpolable parameters   
-    // TODO: Eventually determine enrichment / interpolable dimensions dynamically...
-    if(this->enrichment <= 0.0 || this->enrichment > 100.0) {
-       std::stringstream ss;
-       ss << "Cyborg::reactor::Deplete_() - invalid enrichment specified! this->enrichment = "
-          << this->enrichment << std::endl; 
-       throw cyclus::ValueError(ss.str());
+
+    if(boost::to_upper_copy(this->fuel_type) == "UOX") {
+       double enrich = get_iso_mass_frac(92, 235, mat->comp()) * 100.0;
+       if(enrich <= 0.0 || enrich > 100.0) {         
+          std::stringstream ss;
+          ss << "Cyborg::reactor::Deplete_(); invalid U-235 enrichment!"
+             << " Calculated enrichment = " << enrich << "\n";
+          throw cyclus::ValueError(ss.str());
+       }      
+       react.add_parameter("Enrichment",enrich);
     }
-    react.add_parameter("Enrichment",enrichment);
+    else if(boost::to_upper_copy(this->fuel_type) == "MOX") {
+       double fr_pu239 = get_iso_mass_frac(94, 239, mat->comp()) * 100.0;
+       double fr_pu = get_ele_hm_mass_frac(94, mat->comp()) * 100.0;
+
+       if(fr_pu239 <= 0.0 || fr_pu239 > 100.0) {         
+          std::stringstream ss;
+          ss << "Cyborg::reactor::Deplete_(); invalid Pu-239 enrichment!"
+             << " Calculated enrichment = " << fr_pu239 << "\n";
+          throw cyclus::ValueError(ss.str());
+       }             
+       if(fr_pu <= 0.0 || fr_pu > 100.0) {         
+          std::stringstream ss;
+          ss << "Cyborg::reactor::Deplete_(); invalid Pu heavy metal fraction!"
+             << " Calculated Pu fraction = " << fr_pu << "\n";
+          throw cyclus::ValueError(ss.str());
+       }      
+       react.add_parameter("Plutonium Content",fr_pu);
+       react.add_parameter("Plutonium-239 Content",fr_pu239);
+    }
    
-    if(this->mod_density > 0.0) react.add_parameter("Moderator Density",this->mod_density);   
+    //TEMPORARY
+    //TODO: Do we do any tag vetting here, or just let ORIGEN do it?
+    for(auto &tag : interp_tags) {
+       react.add_parameter(tag.first,tag.second);
+       //std::cerr << "Adding interp. tag: " << tag.first << "->" << tag.second << std::endl;
+    } 
+    // TODO: Create a function to deal with interp tags here...
+    //if(this->mod_density > 0.0) react.add_parameter("Moderator Density",this->mod_density);   
     
     // Set depletion time & power
     std::vector<double> dp_time, dp_pow;
     dp_time.push_back(0.0);
     // Number of cycles is assumed to be proportional to core fraction per batch
     // i.e., 1/3 fraction => 3 cycles
-    //for(size_t i=1; i <= round(this->fuel_capacity*1.E3/mat->quantity()); ++i) {
     for(size_t i=0; i < round(this->n_assem_core / this->n_assem_batch); ++i) {
        // Cycle timestep is in months; use years for ORIGEN for simplicity
        dp_time.push_back(static_cast<double>(cycle_time)/12.0 + dp_time.back());        
@@ -312,6 +341,12 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, int n_asse
     react.set_power_units("watt");
     react.set_powers(dp_pow);  
 
+/*
+    std::cerr << "ID TAGS\n=======" << std::endl;
+    react.list_id_tags();
+    std::cerr << "\nINTERP PARAMS\n=======" << std::endl;
+    react.list_parameters();
+*/
     // Create cross-section library
     react.interpolate();
 
@@ -380,6 +415,35 @@ void reactor::Record(std::string name, std::string val) {
       ->AddVal("Value", val)
       ->Record();
 }
+
+double get_ele_hm_mass_frac(const int Z, const cyclus::Composition::Ptr comp, const int Z_HM) {
+   cyclus::CompMap mass_map = comp->mass();
+   double hm_mass = 0.0;
+   double ele_mass = 0.0;
+
+   for(auto &nuc : mass_map) {
+     if( static_cast<int>(floor(nuc.first / 1E7)) >= Z_HM ) hm_mass += nuc.second;     
+     if( static_cast<int>((nuc.first / 1E7)) == Z) ele_mass += nuc.second;
+   }
+   if (hm_mass <= 0.0) return -1;
+   return (ele_mass / hm_mass);
+}
+
+double get_iso_mass_frac(const int Z, const int A, const cyclus::Composition::Ptr comp) {
+   cyclus::CompMap mass_map = comp->mass();
+   double ele_mass = 0.0;
+   double iso_mass = 0.0;
+
+   for(auto &nuc : mass_map) {
+     if( static_cast<int>(floor(nuc.first / 1E7)) == Z ) {
+       ele_mass += nuc.second;
+       if( static_cast<int>((nuc.first - Z*1E7)/1E4) == A) iso_mass += nuc.second;
+     }  
+   }
+   if(ele_mass <= 0.0) return -1;
+   return (iso_mass / ele_mass);   
+}
+
 
 extern "C" cyclus::Agent* Constructreactor(cyclus::Context* ctx) {
   return new reactor(ctx);

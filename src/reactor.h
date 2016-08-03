@@ -230,12 +230,29 @@ class reactor : public cyclus::Facility,
                       "uilabel":"Reactor Lifetime",\
                       "units":"time steps"}
   int reactor_lifetime; 
-  
+ 
+  /// fuel_type is used to determine which fuel recipe parameters 
+  /// to extract for reactor data library interpolation.
+  /// e.g., UOX uses U-235 enrichment
+  ///       MOX uses Pu-239 enrichment and total Pu fraction
+  ///       "Other" does not use recipe-based values for interpolation
+  #pragma cyclus var {'default': "UOX",\
+                      "tooltip":"Reactor fuel type",\
+                      "uilabel":"Fuel type",\
+                      "doc":"Fuel type (UOX/MOX/other) used for the reactor."\
+                            " Used for reactor data library interpolation from"\
+                            " initial fuel composition.",\
+                      'uitype':"combobox",\
+                      'categorical':['UOX','MOX','other'],\
+                      "userlevel":1}
+  std::string fuel_type;
+  /*
   #pragma cyclus var {"tooltip":"Fresh fuel enrichment",\
                       "doc":"Fresh fuel enrichment",\
                       "uilabel":"Fresh Fuel Enrichment",\
                       "userlevel":1}   
   double enrichment;
+  */
 
   /// Level 2 Parameters  
   /// Default set by environment / build argument in orglib_default_location.h
@@ -253,13 +270,15 @@ class reactor : public cyclus::Facility,
                       'tooltip':"Assembly type",\
                       'doc':"ORIGEN library type to be used",\
                       'uilabel':"Assembly Type",\
+                      'uitype':"combobox",\
                       'userlevel':2,\
                       'categorical':['ce14x14', 'ce16x16', 'w14x14', 's14x14', 'w15x15', \
                       'w17x17', 'w17x17_ofa', 'ge7x7-0', 'ge8x8-4', 'abb8x8-1', 'ge9x9-7', 'ge10x10-8', \
                       'atrium9-9', 'atrium10-9', 'svea64-1', 'svea100-0']} 
   std::string assembly_type;
-
+      
 // 'default':0.72,
+/*
   #pragma cyclus var {'default': 0.0,\
                       "units":"g/cc",\
                       "tooltip":"Moderator Density",\
@@ -267,8 +286,27 @@ class reactor : public cyclus::Facility,
                       "uilabel":"Moderator Density",\
                       "userlevel":2}
   double mod_density;
+*/
 
   /// Level 3 Parameters
+
+  /// Interpolation tags to be used directly with ORIGEN TagManager
+  /// Reactor data library interpolation parameters expressed as key-value pairs
+  /// Example tags include moderator density, fuel temperature, etc.  
+  
+  #pragma cyclus var {'tooltip':"ORIGEN library interpolation tag/value pairs",\
+                      'uilabel':"Interp. tags",\
+                      'alias': ["tags", "tag", "value"],\
+                      'uitype': ["oneormore", "string","double"],\
+                      'userlevel':3,\
+                      'doc':"Tag/value pairs used for ORIGEN reactor data library"\
+                            " interpolation. Valid tags depend on the individual"\
+                            " library, but may include aspects such as moderator"\
+                            " density, fuel temperature, etc.\n\n"\
+                            "Note that fuel composition tags should NOT be input"\
+                            " here, as they are covered by the fuel_type input and"\
+                            " input composition recipe."}
+  std::map<std::string,double> interp_tags;
 
   // should be hidden in ui (internal only). 
   // True if fuel has already been discharged this cycle.
@@ -280,23 +318,20 @@ class reactor : public cyclus::Facility,
   // This variable should be hidden/unavailable in ui.  Maps resource object
   // id's to the index for the incommod through which they were received.
   #pragma cyclus var {"default": {}, "doc": "This should NEVER be set manually", \
-                      "internal": True \
-                     }
+                      "internal": True }
   std::map<int, int> res_indexes;
                                
   // should be hidden in ui (internal only). 
   // True if conditions to perturb output recipe (burnup, initial composition, etc.) have changed
   #pragma cyclus var {"default": 1, "doc": "This should NEVER be set manually",\
-                      "internal": True \
-  }
+                      "internal": True }
   bool refreshSpentRecipe;
 
 
   // should be hidden in ui (internal only). 
-  // State variable to store the burnup of the current power history
+  // State variable to store the current discharge burnup of the fuel
   #pragma cyclus var {"default": 0.0, "doc": "This should NEVER be set manually",\
-                      "internal": True \
-  }
+                      "internal": True, "units":"MWd/MTHM" }
   double burnup;
 
   /// Material Flow Parameters                                                      
@@ -325,6 +360,19 @@ class reactor : public cyclus::Facility,
   
 };
 
+// Helper functions
+
+/// \brief Get heavy metal mass fraction of an element 
+/// \param Z      Atomic number of element (e.g., U = 92)
+/// \param comp   Cyclus composition from which to extract HM mass fraction
+/// \param hm_ele Starting atomic number for summing heavy metal masses (default = 90)
+double get_ele_hm_mass_frac(const int, const cyclus::Composition::Ptr, const int Z_HM = 90);
+
+/// \brief Get isotopic mass fraction for a given isotope (e.g., % U-235 in U)
+/// \param Z    Atomic number of parent element
+/// \param A    Mass number for isotope mass fraction
+/// \param comp Cyclus composition to extract isotopic mass fraction 
+double get_iso_mass_frac(const int, const int, const cyclus::Composition::Ptr);
 
 }  // namespace cyborg
 

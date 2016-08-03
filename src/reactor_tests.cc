@@ -35,7 +35,7 @@ void ReactorTest::InitParameters(){
   cycle_time = 12; // months
   reactor_lifetime = 480;
   enrichment = 4.0;
-  mod_density = 0.0; // Setting to 0 to test auto-interpolation of density
+  //mod_density = 0.0; // Setting to 0 to test auto-interpolation of density
   n_assem_core = 75;
   n_assem_spent = 0;
   n_assem_batch = 25;
@@ -57,8 +57,8 @@ void ReactorTest::SetUpReactor(){
   src_facility_->power_cap = power_cap;
   src_facility_->cycle_time = cycle_time;
   src_facility_->reactor_lifetime = reactor_lifetime;
-  src_facility_->enrichment = enrichment;
-  src_facility_->mod_density = mod_density;
+  //src_facility_->enrichment = enrichment;
+  //src_facility_->mod_density = mod_density;
   src_facility_->assem_size = assem_mass;
   src_facility_->core.capacity(assem_mass*n_assem_core);
   src_facility_->spent.capacity(3.0*assem_mass*n_assem_core);
@@ -90,8 +90,8 @@ void ReactorTest::TestInitState(cyborg::reactor* fac){
   EXPECT_EQ(cycle_time, fac->cycle_time);
   //EXPECT_EQ(cap_factor, fac->cap_factor);
   EXPECT_EQ(reactor_lifetime, fac->reactor_lifetime);
-  EXPECT_EQ(enrichment, fac->enrichment);
-  EXPECT_EQ(mod_density, fac->mod_density);
+  //EXPECT_EQ(enrichment, fac->enrichment);
+  //EXPECT_EQ(mod_density, fac->mod_density);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -99,8 +99,8 @@ TEST_F(ReactorTest, InitialState) {
   std::string config =
      "  <fuel_incommods> <val>LEU</val>  </fuel_incommods>  "
      "  <fuel_recipes>  <val>uox</val>  </fuel_recipes>  "
+     "  <fuel_type>UOX</fuel_type> "
      "  <spent_fuel> used fuel </spent_fuel>  "
-     "  <enrichment> 4.0 </enrichment> "
      ""
      "  <power_cap>400.0 </power_cap> "
      "  <power_name> Electric LOOOOOOVE </power_name> " 
@@ -109,7 +109,10 @@ TEST_F(ReactorTest, InitialState) {
      "  <assem_size>166.7</assem_size>  "
      "  <n_assem_fresh>6</n_assem_fresh>"
      "  <n_assem_core>6</n_assem_core>  "
-     "  <n_assem_batch>3</n_assem_batch>  ";
+     "  <n_assem_batch>3</n_assem_batch>  "
+     "  <tags> "
+     "    <item> <tag>Moderator Density</tag> <value>0.723</value> </item>"
+     "  </tags>";
  
   int simdur = 50;
   cyclus::MockSim sim(cyclus::AgentSpec(":cyborg:reactor"), config, simdur);
@@ -142,8 +145,8 @@ TEST_F(ReactorTest, Tick) {
   for(size_t i=0; i < src_facility_->get_cycle_time() + 2; ++i) {
     //std::cerr << "Setting cycle time to: " << i << "  limit = " << src_facility_->get_cycle_time() + 2 << std::endl; 
     set_cycle_step(i); 
-    EXPECT_NO_THROW(src_facility_->Tick()); 
-    //src_facility_->Tick(); 
+    //EXPECT_NO_THROW(src_facility_->Tick()); 
+    src_facility_->Tick(); 
   }
   // Test reactor-specific behaviors of the Tick function here
 
