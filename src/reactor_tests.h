@@ -7,6 +7,8 @@
 #include "test_context.h"
 
 namespace cyborg {
+namespace ReactorTests {
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 class ReactorTest : public ::testing::Test {
  protected:
@@ -30,5 +32,8 @@ class ReactorTest : public ::testing::Test {
   double assem_mass;
   bool refresh_recipe;
 };
-} // namespace reactor
+
+} //namespace ReactorTests
+} // namespace cyborg
+
 #endif // REACTOR_TESTS_H_

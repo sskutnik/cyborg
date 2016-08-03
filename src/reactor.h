@@ -3,19 +3,23 @@
 
 #include <string>
 #include "cyclus.h"
+#include "cyclus_origen_interface.h"
 
 namespace cyborg {
 
 /// @class reactor
 ///
-/// This Facility is intended
-/// as a skeleton to guide the implementation of new Facility
-/// agents.
-/// The reactor class inherits from the Facility class and is
-/// dynamically loaded by the Agent class when requested.
+/// cyborg::reactor is an ORIGEN-based reactor archetype capable of dynamically
+/// calculating spent fuel recipes based on reactor physics and depletion 
+/// calculations using ORIGEN
 ///
 /// @section intro Introduction
-/// Place an introduction to the agent here.
+///
+/// The CyBORG reactor is largely derived from the cycamore::reactor class,
+/// save for the fact that it uses ORIGEN for depletion to calculate discharge
+/// fuel recipes as-needed. As a result, CyBORG infers reactor data interpolation
+/// parameters from the input fuel recipe and fuel type (UOX/MOX/other), as well
+/// as user-provided interpolation tags.
 ///
 /// @section agentparams Agent Parameters
 /// Place a description of the required input parameters which define the
@@ -29,7 +33,19 @@ namespace cyborg {
 /// Place a description of the detailed behavior of the agent. Consider
 /// describing the behavior at the tick and tock as well as the behavior
 /// upon sending and receiving materials and messages.
-//class reactor : public cyclus::Facility  {
+
+//  Forward declaration used for test harness
+namespace ReactorTests {
+   class ReactorTest;
+}
+
+//  Forward declaration for Cyclus-ORIGEN interface layer
+/*
+namespace OrigenInterface {
+   class cyclus2origen;
+}
+*/
+
 class reactor : public cyclus::Facility,
     public cyclus::toolkit::CommodityProducer {
  public:
@@ -40,8 +56,6 @@ class reactor : public cyclus::Facility,
   /// The Prime Directive
   /// Generates code that handles all input file reading and restart operations
   /// (e.g., reading from the database, instantiating a new object, etc.).
-  /// @warning The Prime Directive must have a space before it! (A fix will be
-  /// in 2.0 ^TM)
 
   #pragma cyclus decl
 
@@ -107,9 +121,14 @@ class reactor : public cyclus::Facility,
  int get_n_assem_core() { return this->n_assem_core; }
 
  private:
-   bool retired() {
-      return exit_time() != -1 && context()->time() >= exit_time();
+  bool retired() {
+     return exit_time() != -1 && context()->time() >= exit_time();
   }
+
+   void setup_origen_interp_params(OrigenInterface::cyclus2origen&, const cyclus::Material::Ptr);
+   void setup_origen_power_history(OrigenInterface::cyclus2origen&, const double);
+   void setup_origen_materials(OrigenInterface::cyclus2origen&, const cyclus::Material::Ptr, const int);
+   cyclus::CompMap get_origen_discharge_recipe(OrigenInterface::cyclus2origen&);
 
   /* Module Members */
 
@@ -356,7 +375,7 @@ class reactor : public cyclus::Facility,
   cyclus::toolkit::MatlSellPolicy sell_policy;
 
   /// Allow test access to private members
-  friend class ReactorTest;
+  friend class cyborg::ReactorTests::ReactorTest;
   
 };
 

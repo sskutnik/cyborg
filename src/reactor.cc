@@ -1,6 +1,5 @@
 #include "reactor.h"
 #include "orglib_default_location.h"
-#include "cyclus_origen_interface.h"
 #include "error.h"
 #include <math.h>
 
@@ -110,7 +109,6 @@ void reactor::EnterNotify(){
 void reactor::Tick() {
   if (!decom) {
     // Transmute & Discharge if necessary     
-    //std::cerr << "cycle_time = " << cycle_time << "  cycle_length = " << cycle_length << std::endl;
     if (cycle_step == cycle_time) {
       Transmute_();
     }
@@ -159,8 +157,6 @@ void reactor::Tock() {
   if (cycle_step > 0 || core.count() == n_assem_core) {
     ++cycle_step;
   }
-  
-  //std::cerr << "Finished Tock()" << std::endl;
 }
 
 
@@ -216,9 +212,9 @@ void reactor::Transmute_(int n_assem) {
   }
    
  /*
- * TODO: Call recipe update if needed; otherwise, use old recipe
- * TODO: Alternative: Generate new recipe every time new fuel / power / etc. conditions
- *       come about, push this onto the stack?
+ * TODO: Handle recipe update by looking up hashed state, seeing if discharge recipe exists in cyclus::context
+ *       Note: Do we need to consider non-interpolated parts of the recipe too? (e.g., Pu-240 content, U-234 content...?) 
+ *             Store these as ID tags as well to trigger a recipe update? 
  * TODO: Handle multiple depletion recipes, assuming non-homogeneous batches?
  */
 
@@ -264,7 +260,6 @@ void reactor::Transmute_(int n_assem) {
 cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, int n_assem, double power) {
     
     // TODO: Store interface as a persistent member but free unneeded components after deplete?
-    // TODO: Store burnup somewhere and record discharge burnup each time Transmute is called?
     OrigenInterface::cyclus2origen react;
      
     // Set ORIGEN library path
@@ -277,9 +272,38 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, int n_asse
        throw cyclus::ValueError(ss.str());
     }    
     react.set_id_tag("Assembly Type",assembly_type);
-    
-    // Set Interpolable parameters   
+        
+    this->setup_origen_interp_params(react, mat);
+    this->setup_origen_power_history(react, power);
 
+    // TODO: Get TagManager string here for depletion state, then check if composition exists
+    // If it does, return that. Otherwise, proceed below.
+
+/*
+    std::cerr << "ID TAGS\n=======" << std::endl;
+    react.list_id_tags();
+    std::cerr << "\nINTERP PARAMS\n=======" << std::endl;
+    react.list_parameters();
+*/
+    // Create cross-section library
+    react.interpolate();
+
+    // Set input compositions to deplete
+    this->setup_origen_materials(react, mat, n_assem);
+    
+    // Run ORIGEN depletion calculation
+    react.solve();
+
+    this->burnup = react.burnup_last();  // Burnup in units of MWd/MTHM
+
+    // Update recipe based on discharge compositions from ORIGEN
+    cyclus::CompMap dischargeRecipe = this->get_origen_discharge_recipe(react);
+    cyclus::Composition::Ptr comp_out = cyclus::Composition::CreateFromAtom(dischargeRecipe);
+    return comp_out;
+}
+
+void reactor::setup_origen_interp_params(OrigenInterface::cyclus2origen& react, const cyclus::Material::Ptr mat) {
+    // Set Interpolable parameters   
     if(boost::to_upper_copy(this->fuel_type) == "UOX") {
        double enrich = get_iso_mass_frac(92, 235, mat->comp()) * 100.0;
        if(enrich <= 0.0 || enrich > 100.0) {         
@@ -316,10 +340,11 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, int n_asse
        react.add_parameter(tag.first,tag.second);
        //std::cerr << "Adding interp. tag: " << tag.first << "->" << tag.second << std::endl;
     } 
-    // TODO: Create a function to deal with interp tags here...
     //if(this->mod_density > 0.0) react.add_parameter("Moderator Density",this->mod_density);   
-    
-    // Set depletion time & power
+}
+
+void reactor::setup_origen_power_history(OrigenInterface::cyclus2origen& react, const double power) {
+
     std::vector<double> dp_time, dp_pow;
     dp_time.push_back(0.0);
     // Number of cycles is assumed to be proportional to core fraction per batch
@@ -340,16 +365,9 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, int n_asse
     
     react.set_power_units("watt");
     react.set_powers(dp_pow);  
+}
 
-/*
-    std::cerr << "ID TAGS\n=======" << std::endl;
-    react.list_id_tags();
-    std::cerr << "\nINTERP PARAMS\n=======" << std::endl;
-    react.list_parameters();
-*/
-    // Create cross-section library
-    react.interpolate();
-
+void reactor::setup_origen_materials(OrigenInterface::cyclus2origen& react, const cyclus::Material::Ptr mat, const int n_assem) {
     // Pass nuclide IDs and masses to ORIGEN
     std::vector<int> in_ids;
     std::vector<double> mass_fraction;
@@ -372,15 +390,11 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, int n_asse
                    std::bind1st(std::multiplies<double>(),mat->quantity()/massNorm * n_assem));
     //for(auto mass : norm_mass) { std::cerr << "Normed mass: " << mass/(mat->quantity()) <<  std::endl; }
     react.set_materials(in_ids,norm_mass);
-    
+}
 
-    // Run Calculation
-    react.solve();
+// Get materials and convert nuclide ids back to Cyclus format
+cyclus::CompMap reactor::get_origen_discharge_recipe(OrigenInterface::cyclus2origen& react) {
 
-    // Store burnup (units of MWd/MTU)
-    this->burnup = react.burnup_last();  
-
-    // Get materials and convert nuclide ids back to Cyclus format
     std::vector<int> org_id;
     react.get_ids_zzzaaai(org_id);
      
@@ -402,8 +416,7 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, int n_asse
           //if(org_atom[j] > 1.E-4) std::cerr << "Setting v[" << org_id[j] << "] to: " << org_atom[j] << std::endl;
        }
     }
-    cyclus::Composition::Ptr comp_out = cyclus::Composition::CreateFromAtom(v);
-    return comp_out;
+    return v;
 }
 
 void reactor::Record(std::string name, std::string val) {

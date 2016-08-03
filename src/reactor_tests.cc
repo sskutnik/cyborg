@@ -4,10 +4,13 @@
 
 using cyborg::reactor;
 using pyne::nucname::id;
+using cyclus::Cond;
 using cyclus::QueryResult;
+using cyclus::toolkit::MatQuery;
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 namespace cyborg {
+namespace ReactorTests {
 
 Composition::Ptr c_uox() {
   cyclus::CompMap m;
@@ -20,7 +23,7 @@ Composition::Ptr c_uox() {
 void ReactorTest::SetUp() {
   src_facility_ = new cyborg::reactor(tc_.get());
   InitParameters();
-  SetUpReactor();
+  //SetUpReactor();
 }
 
 void ReactorTest::TearDown() {
@@ -57,8 +60,6 @@ void ReactorTest::SetUpReactor(){
   src_facility_->power_cap = power_cap;
   src_facility_->cycle_time = cycle_time;
   src_facility_->reactor_lifetime = reactor_lifetime;
-  //src_facility_->enrichment = enrichment;
-  //src_facility_->mod_density = mod_density;
   src_facility_->assem_size = assem_mass;
   src_facility_->core.capacity(assem_mass*n_assem_core);
   src_facility_->spent.capacity(3.0*assem_mass*n_assem_core);
@@ -67,7 +68,6 @@ void ReactorTest::SetUpReactor(){
   src_facility_->n_assem_batch = n_assem_batch;
   src_facility_->n_assem_core = n_assem_core;
   src_facility_->refreshSpentRecipe = refresh_recipe;
-  //src_facility_->fuel.capacity(src_facility_->fuel_capacity);
    
   // Create an input material buffer of fresh fuel (255 MTU), i.e., 5 * core capacity
   cyclus::Composition::Ptr rec = tc_.get()->GetRecipe(in_r1[0]);
@@ -82,20 +82,18 @@ void ReactorTest::set_cycle_time(const int t) { src_facility_->cycle_time = t; }
 void ReactorTest::set_cycle_step(const int t) { src_facility_->cycle_step = t; }
 
 void ReactorTest::TestInitState(cyborg::reactor* fac){
-  EXPECT_EQ(in_r1[0], fac->fuel_recipes[0]);
-  EXPECT_EQ(in_c1[0], fac->fuel_incommods[0]);
-  EXPECT_EQ(out_c1, fac->spent_fuel);
-  EXPECT_EQ(power_cap, fac->power_cap);
-  //EXPECT_EQ(fuel_capacity, fac->fuel_capacity);
-  EXPECT_EQ(cycle_time, fac->cycle_time);
-  //EXPECT_EQ(cap_factor, fac->cap_factor);
-  EXPECT_EQ(reactor_lifetime, fac->reactor_lifetime);
-  //EXPECT_EQ(enrichment, fac->enrichment);
-  //EXPECT_EQ(mod_density, fac->mod_density);
+  EXPECT_EQ(in_r1[0], fac->fuel_recipes[0]) << "Reactor fuel input recipe not set correclty!\n";
+  EXPECT_EQ(in_c1[0], fac->fuel_incommods[0]) << "Reactor input fuel commodity not set correctly!\n";
+  EXPECT_EQ(out_c1, fac->spent_fuel) << "Reactor spent fuel commodity not set correctly!\n";
+  EXPECT_EQ(power_cap, fac->power_cap) << "Reactor capacity not set correctly!\n";
+  EXPECT_EQ(cycle_time, fac->cycle_time) << "Facility lifetime not set correctly!\n";
+  EXPECT_EQ(reactor_lifetime, fac->reactor_lifetime) << "Reactor lifetime not set correctly!\n";
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-TEST_F(ReactorTest, InitialState) {
+// Reproduces cycamore::reactor test to verify correct number of assemblies 
+// are popped from core each cycle
+TEST_F(ReactorTest, BatchSizes) {
   std::string config =
      "  <fuel_incommods> <val>LEU</val>  </fuel_incommods>  "
      "  <fuel_recipes>  <val>uox</val>  </fuel_recipes>  "
@@ -122,12 +120,8 @@ TEST_F(ReactorTest, InitialState) {
   int id = sim.Run();
 
   QueryResult qr = sim.db().Query("Transactions", NULL);
-  // 7 for initial core, 3 per time step for each new batch for remainder
+  // 6 for initial core, 3 per time step for each new batch for remainder
   EXPECT_EQ(6+3*(simdur-1), qr.rows.size());
-  //
-
-  // Test things about the initial state of the facility here
-  TestInitState(src_facility_);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -138,17 +132,20 @@ TEST_F(ReactorTest, Print) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 TEST_F(ReactorTest, Tick) {
+  // Directly initialize reactor
+  SetUpReactor();
+  TestInitState(src_facility_);
+ 
   // Need to manually load first core
   src_facility_->Load_();
 
   // Loop through a full reactor cycle
   for(size_t i=0; i < src_facility_->get_cycle_time() + 2; ++i) {
-    //std::cerr << "Setting cycle time to: " << i << "  limit = " << src_facility_->get_cycle_time() + 2 << std::endl; 
     set_cycle_step(i); 
-    //EXPECT_NO_THROW(src_facility_->Tick()); 
-    src_facility_->Tick(); 
+    EXPECT_NO_THROW(src_facility_->Tick()); 
+    //src_facility_->Tick(); 
   }
-  // Test reactor-specific behaviors of the Tick function here
+  // Test reactor-specific behaviors of the Tick function here...
 
 }
 
@@ -156,34 +153,22 @@ TEST_F(ReactorTest, Tick) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 TEST_F(ReactorTest, Tock) {
-  //std::cerr << "Reactor assembly type: " << src_facility_->assembly_type << std::endl;
-  //std::cerr << "Tock: moderator density = " << src_facility_->mod_density << std::endl;
-  //std::cerr << "lib data path: " << src_facility_->lib_path << std::endl;  
+  // Directly initialize reactor
+  SetUpReactor();
+  TestInitState(src_facility_);
 
- /*
-  src_facility_->reactor_time = src_facility_->cycle_time - 1; 
-  try{ 
-     src_facility_->Tock(); // no depletion
-     src_facility_->Tock(); // depletion
-     src_facility_->Tock(); // no depletion
+  // Need to manually load first core
+  src_facility_->Load_();
 
+  // Loop through a full reactor cycle
+  for(size_t i=0; i < src_facility_->get_cycle_time() + 2; ++i) {
+    set_cycle_step(i); 
+    EXPECT_NO_THROW(src_facility_->Tock()); 
   }
-  catch( std::exception& ex) {
-    std::cerr << "Exception thrown: " << ex.what() << std::endl;
-  }
-  catch( ... ) {
-    std::cerr << "Unknown exception thrown!" << std::endl;
-  }  
-*/
-
-  // Test for one step before, during, and after a depletion step
-  set_cycle_time(src_facility_->get_cycle_time() - 1); 
-  EXPECT_NO_THROW(src_facility_->Tock()); // no depletion
-  EXPECT_NO_THROW(src_facility_->Tock()); // depletion
-  EXPECT_NO_THROW(src_facility_->Tock()); // no depletion
-
-  // Test reactor specific behaviors of the Tock function here
+  // Test reactor-specific behaviors of the Tick function here...
 }
+
+} // namespace ReactorTests
 } // namespace cyborg
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
