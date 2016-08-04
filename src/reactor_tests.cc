@@ -36,6 +36,7 @@ void ReactorTest::InitParameters(){
   out_c1 = "out_c1";
   power_cap = 800.0; // MWt
   cycle_time = 12; // months
+  refuel_time = 1; // months
   reactor_lifetime = 480;
   enrichment = 4.0;
   //mod_density = 0.0; // Setting to 0 to test auto-interpolation of density
@@ -59,6 +60,7 @@ void ReactorTest::SetUpReactor(){
   src_facility_->spent_fuel = out_c1;
   src_facility_->power_cap = power_cap;
   src_facility_->cycle_time = cycle_time;
+  src_facility_->refuel_time = refuel_time;
   src_facility_->reactor_lifetime = reactor_lifetime;
   src_facility_->assem_size = assem_mass;
   src_facility_->core.capacity(assem_mass*n_assem_core);
@@ -67,6 +69,8 @@ void ReactorTest::SetUpReactor(){
   src_facility_->assembly_type = "w17x17";
   src_facility_->n_assem_batch = n_assem_batch;
   src_facility_->n_assem_core = n_assem_core;
+  src_facility_->core_power_frac = std::vector<double>(n_assem_core/n_assem_batch, 
+                                      static_cast<double>(n_assem_batch) / static_cast<double>(n_assem_core));
   src_facility_->refreshSpentRecipe = refresh_recipe;
    
   // Create an input material buffer of fresh fuel (255 MTU), i.e., 5 * core capacity
@@ -80,6 +84,7 @@ void ReactorTest::SetUpReactor(){
 
 void ReactorTest::set_cycle_time(const int t) { src_facility_->cycle_time = t; }
 void ReactorTest::set_cycle_step(const int t) { src_facility_->cycle_step = t; }
+int  ReactorTest::get_cycle_time() { return src_facility_->cycle_time; }
 
 void ReactorTest::TestInitState(cyborg::reactor* fac){
   EXPECT_EQ(in_r1[0], fac->fuel_recipes[0]) << "Reactor fuel input recipe not set correclty!\n";
@@ -140,10 +145,10 @@ TEST_F(ReactorTest, Tick) {
   src_facility_->Load_();
 
   // Loop through a full reactor cycle
-  for(size_t i=0; i < src_facility_->get_cycle_time() + 2; ++i) {
+  for(size_t i=0; i < get_cycle_time() + 2; ++i) {
     set_cycle_step(i); 
-    EXPECT_NO_THROW(src_facility_->Tick()); 
-    //src_facility_->Tick(); 
+    //EXPECT_NO_THROW(src_facility_->Tick()); 
+    src_facility_->Tick(); 
   }
   // Test reactor-specific behaviors of the Tick function here...
 
@@ -161,7 +166,7 @@ TEST_F(ReactorTest, Tock) {
   src_facility_->Load_();
 
   // Loop through a full reactor cycle
-  for(size_t i=0; i < src_facility_->get_cycle_time() + 2; ++i) {
+  for(size_t i=0; i < get_cycle_time() + 2; ++i) {
     set_cycle_step(i); 
     EXPECT_NO_THROW(src_facility_->Tock()); 
   }

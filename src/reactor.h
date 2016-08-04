@@ -102,9 +102,8 @@ class reactor : public cyclus::Facility,
 
   /// Deplete the material for this cycle
   /// @param mat   The material to be depleted
-  //  @param n_assem Number of assemblies to be depleted (using assem_size) 
-  /// @param power Depletion power of the material in MW
-  cyclus::Composition::Ptr Deplete_(cyclus::Material::Ptr, const int, const double);
+  //  @param n_assem Number of assemblies to be depleted (using assem_size => total HM mass) 
+  cyclus::Composition::Ptr Deplete_(cyclus::Material::Ptr, const int);
 
   double fuel_capacity() { return ( this->fresh.space() + this->core.space() ); }
 
@@ -112,13 +111,6 @@ class reactor : public cyclus::Facility,
 
 
  ////////// Data accessors /////////
- int get_cycle_time() { return this->cycle_time; }
- int get_cycle_step() { return this->cycle_step; }
- int get_refuel_time() { return this->refuel_time; }
- int get_n_assem_fresh() { return this->n_assem_fresh; }
- int get_n_assem_spent() { return this->n_assem_spent; }
- int get_n_assem_batch() { return this->n_assem_batch; }
- int get_n_assem_core() { return this->n_assem_core; }
 
  private:
   bool retired() {
@@ -126,7 +118,7 @@ class reactor : public cyclus::Facility,
   }
 
    void setup_origen_interp_params(OrigenInterface::cyclus2origen&, const cyclus::Material::Ptr);
-   void setup_origen_power_history(OrigenInterface::cyclus2origen&, const double);
+   void setup_origen_power_history(OrigenInterface::cyclus2origen&);
    void setup_origen_materials(OrigenInterface::cyclus2origen&, const cyclus::Material::Ptr, const int);
    cyclus::CompMap get_origen_discharge_recipe(OrigenInterface::cyclus2origen&);
 
@@ -141,7 +133,6 @@ class reactor : public cyclus::Facility,
                       "uilabel":"Fuel Commodity",\
                       "userlevel":1}
   std::vector<std::string> fuel_incommods;
-  // Add multiple fuel options later
 
   #pragma cyclus var {'default':[],\
                       "tooltip":"Input fuel recipe",\
@@ -156,12 +147,12 @@ class reactor : public cyclus::Facility,
     "uilabel": "Fresh Fuel Preference List", \
     "doc": "The preference for each type of fresh fuel requested corresponding"\
            " to each input commodity (same order).  If no preferences are " \
-           "specified, 1.0 is used for all fuel " \
-           "requests (default).", \
+           "specified, 1.0 is used for all fuel requests (default).", \
   }
   std::vector<double> fuel_prefs;
 
-  #pragma cyclus var {"tooltip":"Spent fuel commodity",\
+  #pragma cyclus var {'default':"spent_fuel",\
+                      "tooltip":"Spent fuel commodity",\
                       "doc":"Name of spent fuel commodity",\
                       "uitype":"outcommodity","uilabel":"Spent Fuel Commodity",\
                       "userlevel":1}
@@ -188,19 +179,21 @@ class reactor : public cyclus::Facility,
   double assem_size;
 
   #pragma cyclus var { \
-    "uilabel": "Number of Assemblies per Batch", \
-    "doc": "Number of assemblies that constitute a single batch.  " \
-           "This is the number of assemblies discharged from the core fully " \
-           "burned each cycle."                                         \
-           "Batch size is equivalent to ``n_assem_batch / n_assem_core``.", \
-    "userlevel":1 }
-  int n_assem_batch;
-
-  #pragma cyclus var { \
     "uilabel": "Number of Assemblies in Core", \
     "doc": "Number of assemblies that constitute a full core.", \
     "userlevel":1 }
   int n_assem_core;
+
+  #pragma cyclus var { \
+    'default': "n_assem_core",\
+    "uilabel": "Number of Assemblies per Batch", \
+    "doc": "Number of assemblies that constitute a single batch.\n" \
+           "This is the number of assemblies discharged from the core fully " \
+           "burned each cycle.\n"\
+           "Batch size is equivalent to ``n_assem_batch / n_assem_core``.\n"\
+           "Defaults to n_assem_core (single-batch core).", \
+    "userlevel":1 }
+  int n_assem_batch;
 
   #pragma cyclus var { \
     "default": 0, \
@@ -255,6 +248,7 @@ class reactor : public cyclus::Facility,
   /// e.g., UOX uses U-235 enrichment
   ///       MOX uses Pu-239 enrichment and total Pu fraction
   ///       "Other" does not use recipe-based values for interpolation
+  /// \TODO: Add option for one-or-more selection (i.e., one per input recipe...)
   #pragma cyclus var {'default': "UOX",\
                       "tooltip":"Reactor fuel type",\
                       "uilabel":"Fuel type",\
@@ -265,13 +259,6 @@ class reactor : public cyclus::Facility,
                       'categorical':['UOX','MOX','other'],\
                       "userlevel":1}
   std::string fuel_type;
-  /*
-  #pragma cyclus var {"tooltip":"Fresh fuel enrichment",\
-                      "doc":"Fresh fuel enrichment",\
-                      "uilabel":"Fresh Fuel Enrichment",\
-                      "userlevel":1}   
-  double enrichment;
-  */
 
   /// Level 2 Parameters  
   /// Default set by environment / build argument in orglib_default_location.h
@@ -296,17 +283,6 @@ class reactor : public cyclus::Facility,
                       'atrium9-9', 'atrium10-9', 'svea64-1', 'svea100-0']} 
   std::string assembly_type;
       
-// 'default':0.72,
-/*
-  #pragma cyclus var {'default': 0.0,\
-                      "units":"g/cc",\
-                      "tooltip":"Moderator Density",\
-                      "doc":"Reactor moderator density",\
-                      "uilabel":"Moderator Density",\
-                      "userlevel":2}
-  double mod_density;
-*/
-
   /// Level 3 Parameters
 
   /// Interpolation tags to be used directly with ORIGEN TagManager
@@ -326,6 +302,20 @@ class reactor : public cyclus::Facility,
                             " here, as they are covered by the fuel_type input and"\
                             " input composition recipe."}
   std::map<std::string,double> interp_tags;
+
+  #pragma cyclus var {'default':[],\
+                      'uilabel':'Batch core power frac.',\
+                      'tooltip':"Core power fraction for each fuel batch (0,1])",\
+                      'uitype': ["oneormore","double"],\
+                      'doc': "Core power fraction for each fuel batch; expressed"\
+                             " as a value from (0,1], totaling to 1. Unnormalized"\
+                             " values are automatically renormalized. Defaults to"\
+                             " equal power fraction per cycle if unspecified. MUST"\
+                             " be the same number of entries as batches in the core,"\
+                             " as determined by n_assem_core / n_assem_batch.",\
+                      'userlevel':3\
+                     }
+  std::vector<double> core_power_frac;
 
   // should be hidden in ui (internal only). 
   // True if fuel has already been discharged this cycle.
@@ -363,7 +353,7 @@ class reactor : public cyclus::Facility,
                       "tooltip":"Fuel held in core"}
   cyclus::toolkit::ResBuf<cyclus::Material> core;
   #pragma cyclus var {"capacity": "n_assem_spent * assem_size",\
-                      "tooltip":"Diharge fuel holding capacity / output buffer"}
+                      "tooltip":"Discharge fuel holding capacity / output buffer"}
   cyclus::toolkit::ResBuf<cyclus::Material> spent;
   
   // Cached composition of spent fuel (calculated from ORIGEN)

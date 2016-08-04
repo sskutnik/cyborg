@@ -69,9 +69,32 @@ void reactor::EnterNotify(){
         << " fuel preferences, expected " << n << "\n";
   }
   if(fuel_recipes.size() != n) {
-     ss << "cycborg::reactor has " << fuel_recipes.size() 
+     ss << "cyborg::reactor has " << fuel_recipes.size() 
         << " input recipes, expected " << n << "\n";
   }
+
+  // Check for consistency of batch power fractions with number of batches
+  size_t n_batch = n_assem_core / n_assem_batch;
+  if ( core_power_frac.size() > 0) {
+     if( core_power_frac.size() == n_batch ) {
+        // Normalize sum of batch power fractions to 1.0
+        double powNorm = std::accumulate(core_power_frac.begin(),core_power_frac.end(), 0.0);
+        std::transform(core_power_frac.begin(), core_power_frac.end(), core_power_frac.begin(), 
+                   std::bind1st(std::multiplies<double>(),1.0/powNorm));    
+     }
+     else {
+        ss << "cyborg::reactor has " << core_power_frac.size() 
+           << " values for batch power fraction, however " 
+           << " # of batches (n_assem_core / n_assem_batch) = " 
+           << n_batch << "\n";
+     }
+ 
+  }
+  else {
+     core_power_frac.resize(n_batch, 1.0/static_cast<double>(n_batch));
+  }
+
+  // Handle any input errors
   if(ss.str().size() > 0) {
      throw cyclus::ValueError(ss.str());
   }
@@ -91,12 +114,11 @@ void reactor::EnterNotify(){
   //buy_policy.Init(this, &fresh, fuel_incommods);
   buy_policy.Init(this, &fresh, "fresh fuel", this->fuel_capacity(), 1.0, 1.0, this->assem_size);
   for(size_t i=0; i < fuel_incommods.size(); ++i) {
-     // TODO: Implement preference specification for fuel_incommods           
      comp = nullComp; 
      if (fuel_recipes[i] != "") {
         comp = context()->GetRecipe(fuel_recipes[i]); 
      }   
-     buy_policy.Set(fuel_incommods[i], comp);
+     buy_policy.Set(fuel_incommods[i], comp, fuel_prefs[i]);
   }
   buy_policy.Start();   
 
@@ -218,12 +240,11 @@ void reactor::Transmute_(int n_assem) {
  * TODO: Handle multiple depletion recipes, assuming non-homogeneous batches?
  */
 
-  if(refreshSpentRecipe) {
-     //TODO: Handle cycle powers by batch, send in powers vector
+  if(refreshSpentRecipe) {     
 
      // Calculate total thermal power of depleted assemblies; 
      // Convert from MWt => W
-     double cyclePower = power_cap * static_cast<double>(n_assem_batch)/static_cast<double>(n_assem_core) * 1E6;
+     //double cyclePower = power_cap * static_cast<double>(n_assem_batch)/static_cast<double>(n_assem_core) * 1E6;
 
      // Check that all assemblies in the batch have the same composition
      // TODO make this a loop until we've traversed to the end of the batch?
@@ -238,7 +259,7 @@ void reactor::Transmute_(int n_assem) {
 */     
      bool isHomogenous = (std::adjacent_find( matIDs.begin(), matIDs.end(), std::not_equal_to<int>() ) == matIDs.end());
      // FOR NOW: Assume everything in the batch is the same composition
-     spentFuelComp = this->Deplete_(old[0],n_assem_batch,cyclePower);
+     spentFuelComp = this->Deplete_(old[0],n_assem_batch);
      refreshSpentRecipe = false;  //TODO: Add code to check when this needs to be turned back on
   }
   if(!spentFuelComp) {
@@ -257,9 +278,8 @@ void reactor::Transmute_(int n_assem) {
 
 
 //TODO - Separate transmute behaviors from ORIGEN behaviors
-cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, int n_assem, double power) {
+cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, int n_assem) {
     
-    // TODO: Store interface as a persistent member but free unneeded components after deplete?
     OrigenInterface::cyclus2origen react;
      
     // Set ORIGEN library path
@@ -274,7 +294,7 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, int n_asse
     react.set_id_tag("Assembly Type",assembly_type);
         
     this->setup_origen_interp_params(react, mat);
-    this->setup_origen_power_history(react, power);
+    this->setup_origen_power_history(react);
 
     // TODO: Get TagManager string here for depletion state, then check if composition exists
     // If it does, return that. Otherwise, proceed below.
@@ -334,7 +354,6 @@ void reactor::setup_origen_interp_params(OrigenInterface::cyclus2origen& react, 
        react.add_parameter("Plutonium-239 Content",fr_pu239);
     }
    
-    //TEMPORARY
     //TODO: Do we do any tag vetting here, or just let ORIGEN do it?
     for(auto &tag : interp_tags) {
        react.add_parameter(tag.first,tag.second);
@@ -343,22 +362,25 @@ void reactor::setup_origen_interp_params(OrigenInterface::cyclus2origen& react, 
     //if(this->mod_density > 0.0) react.add_parameter("Moderator Density",this->mod_density);   
 }
 
-void reactor::setup_origen_power_history(OrigenInterface::cyclus2origen& react, const double power) {
+void reactor::setup_origen_power_history(OrigenInterface::cyclus2origen& react) {
 
     std::vector<double> dp_time, dp_pow;
     dp_time.push_back(0.0);
     // Number of cycles is assumed to be proportional to core fraction per batch
     // i.e., 1/3 fraction => 3 cycles
-    for(size_t i=0; i < round(this->n_assem_core / this->n_assem_batch); ++i) {
+    for(size_t i=0; i < core_power_frac.size(); ++i) {
        // Cycle timestep is in months; use years for ORIGEN for simplicity
-       dp_time.push_back(static_cast<double>(cycle_time)/12.0 + dp_time.back());        
-       // SES TODO: Eventually handle non-uniform cycle powers
-       dp_pow.push_back(power);
-       //std::cerr << "Pushing back time: " << cycle_length*i*1.0/12.0 << "  power: " << power << std::endl;
+       dp_time.push_back(static_cast<double>(cycle_time)/12.0 + dp_time.back());
+
+       // Convert power to MWt 
+       double cyclePower = power_cap * core_power_frac[i] * 1E6;
+       dp_pow.push_back(cyclePower);
        
        // Decay fuel during reload
-       dp_time.push_back(dp_time.back() + static_cast<double>(refuel_time)/12.0);
-       dp_pow.push_back(0.0);
+       if(refuel_time > 0) {
+          dp_time.push_back(dp_time.back() + static_cast<double>(refuel_time)/12.0);
+          dp_pow.push_back(0.0);
+       }
     }
     react.set_time_units("y");
     react.set_time_steps(dp_time); 

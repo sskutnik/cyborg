@@ -22,12 +22,13 @@ class ReactorTest : public ::testing::Test {
 
   void set_cycle_time(const int);
   void set_cycle_step(const int);
+  int get_cycle_time();
   void TestInitState(cyborg::reactor* fac);
 
   std::vector<std::string> in_r1, in_c1;
   std::string out_c1;
   double power_cap, core_capacity, enrichment, mod_density;
-  int cycle_time, reactor_lifetime;
+  int cycle_time, refuel_time, reactor_lifetime;
   int n_assem_core, n_assem_spent, n_assem_batch; 
   double assem_mass;
   bool refresh_recipe;
