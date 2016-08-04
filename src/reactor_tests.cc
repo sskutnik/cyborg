@@ -4,8 +4,7 @@
 
 using cyborg::reactor;
 using pyne::nucname::id;
-using cyclus::Cond;
-using cyclus::QueryResult;
+using cyclus::Cond;using cyclus::QueryResult;
 using cyclus::toolkit::MatQuery;
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -34,6 +33,7 @@ void ReactorTest::InitParameters(){
   in_r1 = std::vector<std::string>(1,"in_r1");
   in_c1 = std::vector<std::string>(1,"in_c1");
   out_c1 = "out_c1";
+  fuel_type = "UOX";
   power_cap = 800.0; // MWt
   cycle_time = 12; // months
   refuel_time = 1; // months
@@ -44,7 +44,6 @@ void ReactorTest::InitParameters(){
   n_assem_spent = 0;
   n_assem_batch = 25;
   assem_mass = 325.0; // kg 
-  refresh_recipe = true;
  
   cyclus::CompMap v;
   v[922350000] = (enrichment/100.0);
@@ -67,11 +66,11 @@ void ReactorTest::SetUpReactor(){
   src_facility_->spent.capacity(3.0*assem_mass*n_assem_core);
   src_facility_->fresh.capacity(2.0*assem_mass*n_assem_core);
   src_facility_->assembly_type = "w17x17";
+  src_facility_->fuel_type = "UOX";
   src_facility_->n_assem_batch = n_assem_batch;
   src_facility_->n_assem_core = n_assem_core;
   src_facility_->core_power_frac = std::vector<double>(n_assem_core/n_assem_batch, 
                                       static_cast<double>(n_assem_batch) / static_cast<double>(n_assem_core));
-  src_facility_->refreshSpentRecipe = refresh_recipe;
    
   // Create an input material buffer of fresh fuel (255 MTU), i.e., 5 * core capacity
   cyclus::Composition::Ptr rec = tc_.get()->GetRecipe(in_r1[0]);
@@ -84,6 +83,7 @@ void ReactorTest::SetUpReactor(){
 
 void ReactorTest::set_cycle_time(const int t) { src_facility_->cycle_time = t; }
 void ReactorTest::set_cycle_step(const int t) { src_facility_->cycle_step = t; }
+void ReactorTest::set_discharged(const bool d) { src_facility_->discharged = d; }
 int  ReactorTest::get_cycle_time() { return src_facility_->cycle_time; }
 
 void ReactorTest::TestInitState(cyborg::reactor* fac){
@@ -107,7 +107,7 @@ TEST_F(ReactorTest, BatchSizes) {
      ""
      "  <power_cap>400.0 </power_cap> "
      "  <power_name> Electric LOOOOOOVE </power_name> " 
-     "  <cycle_time>1</cycle_time>  "
+     "  <cycle_time>2</cycle_time>  "
      "  <refuel_time>0</refuel_time>  "
      "  <assem_size>166.7</assem_size>  "
      "  <n_assem_fresh>6</n_assem_fresh>"
@@ -125,8 +125,8 @@ TEST_F(ReactorTest, BatchSizes) {
   int id = sim.Run();
 
   QueryResult qr = sim.db().Query("Transactions", NULL);
-  // 6 for initial core, 3 per time step for each new batch for remainder
-  EXPECT_EQ(6+3*(simdur-1), qr.rows.size());
+  // 6 for initial core, 3 per every other time step for each new batch for remainder
+  EXPECT_EQ(6+3*(simdur/2+1), qr.rows.size());
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -143,6 +143,7 @@ TEST_F(ReactorTest, Tick) {
  
   // Need to manually load first core
   src_facility_->Load_();
+  set_discharged(false);
 
   // Loop through a full reactor cycle
   for(size_t i=0; i < get_cycle_time() + 2; ++i) {
@@ -164,6 +165,7 @@ TEST_F(ReactorTest, Tock) {
 
   // Need to manually load first core
   src_facility_->Load_();
+  set_discharged(false);
 
   // Loop through a full reactor cycle
   for(size_t i=0; i < get_cycle_time() + 2; ++i) {

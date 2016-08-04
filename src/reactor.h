@@ -103,7 +103,7 @@ class reactor : public cyclus::Facility,
   /// Deplete the material for this cycle
   /// @param mat   The material to be depleted
   //  @param n_assem Number of assemblies to be depleted (using assem_size => total HM mass) 
-  cyclus::Composition::Ptr Deplete_(cyclus::Material::Ptr, const int);
+  cyclus::Composition::Ptr Deplete_(cyclus::Material::Ptr, const int, int n_cycles = -1);
 
   double fuel_capacity() { return ( this->fresh.space() + this->core.space() ); }
 
@@ -117,10 +117,10 @@ class reactor : public cyclus::Facility,
      return exit_time() != -1 && context()->time() >= exit_time();
   }
 
-   void setup_origen_interp_params(OrigenInterface::cyclus2origen&, const cyclus::Material::Ptr);
-   void setup_origen_power_history(OrigenInterface::cyclus2origen&);
-   void setup_origen_materials(OrigenInterface::cyclus2origen&, const cyclus::Material::Ptr, const int);
-   cyclus::CompMap get_origen_discharge_recipe(OrigenInterface::cyclus2origen&);
+  void setup_origen_interp_params(OrigenInterface::cyclus2origen&, const cyclus::Material::Ptr);
+  void setup_origen_power_history(OrigenInterface::cyclus2origen&, const int);
+  void setup_origen_materials(OrigenInterface::cyclus2origen&, const cyclus::Material::Ptr, const int);
+  cyclus::CompMap get_origen_discharge_recipe(OrigenInterface::cyclus2origen&);
 
   /* Module Members */
 
@@ -264,8 +264,11 @@ class reactor : public cyclus::Facility,
   /// Default set by environment / build argument in orglib_default_location.h
   /// Extract the ORIGEN library default location from auto-generated header, 
   /// because cycpp needs a string, not a preprocessor directive
-  #pragma cyclus exec import re; orglib_header = re.search('ORIGEN_LIBS_DEFAULT\s+\"(.*)\"', open('cyborg/orglib_default_location.h','r').read()).group(1)  
-  #pragma cyclus var {'default': orglib_header,\
+  #pragma cyclus exec import os; import re; \
+                      orglib_prefix = "./" if os.path.isfile('cyborg/orglib_default_location.h') else "../";\
+                      orglib_header = orglib_prefix + 'cyborg/orglib_default_location.h'; \
+                      orglib_loc = re.search('ORIGEN_LIBS_DEFAULT\s+\"(.*)\"', open(orglib_header,'r').read()).group(1)
+  #pragma cyclus var {'default': orglib_loc,\
                       "tooltip":"Path to ORIGEN Libraries",\
                       "doc":"Path to ORIGEN Libraries",\
                       "uilabel":"Path to ORIGEN Libraries",\
@@ -329,20 +332,13 @@ class reactor : public cyclus::Facility,
   #pragma cyclus var {"default": {}, "doc": "This should NEVER be set manually", \
                       "internal": True }
   std::map<int, int> res_indexes;
-                               
-  // should be hidden in ui (internal only). 
-  // True if conditions to perturb output recipe (burnup, initial composition, etc.) have changed
-  #pragma cyclus var {"default": 1, "doc": "This should NEVER be set manually",\
-                      "internal": True }
-  bool refreshSpentRecipe;
-
 
   // should be hidden in ui (internal only). 
   // State variable to store the current discharge burnup of the fuel
   #pragma cyclus var {"default": 0.0, "doc": "This should NEVER be set manually",\
                       "internal": True, "units":"MWd/MTHM" }
   double burnup;
-
+  
   /// Material Flow Parameters                                                      
                                                                      
   // referenced (e.g. n_batch_fresh, assem_size, etc.).

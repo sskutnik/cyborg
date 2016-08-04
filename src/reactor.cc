@@ -42,7 +42,6 @@ void reactor::InitFrom(cyclus::QueryableBackend* b) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 reactor::reactor(cyclus::Context* ctx) : cyclus::Facility(ctx), decom(false), 
-                                         refreshSpentRecipe(true),
                                          power_cap(0.0), assem_size(0.0),
                                          n_assem_batch(0), n_assem_core(0),
                                          lib_path(ORIGEN_LIBS_DEFAULT),
@@ -111,7 +110,7 @@ void reactor::EnterNotify(){
   // dummy comp, use in_recipe if provided
   nullComp = cyclus::Composition::CreateFromAtom(v);
 
-  //buy_policy.Init(this, &fresh, fuel_incommods);
+  //TODO: There has to be a way to load trades directly into the core, right?
   buy_policy.Init(this, &fresh, "fresh fuel", this->fuel_capacity(), 1.0, 1.0, this->assem_size);
   for(size_t i=0; i < fuel_incommods.size(); ++i) {
      comp = nullComp; 
@@ -129,6 +128,7 @@ void reactor::EnterNotify(){
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void reactor::Tick() {
+  //std::cerr << "Tick(): cycle_step = " << cycle_step << "  discharged = " << discharged << std::endl;
   if (!decom) {
     // Transmute & Discharge if necessary     
     if (cycle_step == cycle_time) {
@@ -136,7 +136,7 @@ void reactor::Tick() {
     }
     if(cycle_step >= cycle_time && !discharged) {
       discharged = Discharge_();
-      //std::cerr << "Called discharge: result = " << discharged << std::endl;
+      //std::cerr << "Called discharge: result = " << discharged << "  core.count() = " << core.count() << std::endl;
     }
     if(discharged) { 
       // Only load core once we've fully cleared out the fully-burnt assemblies
@@ -155,7 +155,7 @@ void reactor::Tock() {
     return;
   }
   //std::cerr << "TOCK: discharged = " << discharged << std::endl;
-  if (cycle_step >= cycle_time + refuel_time) {   
+  if (cycle_step >= cycle_time + refuel_time || cycle_step == 0) {   
     if( core.count() == n_assem_core) {
       // Restart once the core is fully reloaded
       discharged = false;
@@ -205,7 +205,7 @@ bool reactor::Discharge_() { return Discharge_(this->n_assem_batch); }
 
 bool reactor::Discharge_(int n_assem_discharged) {
 
-  int npop = std::min(n_assem_batch, core.count());
+  int npop = std::min(n_assem_discharged, core.count());
   if (n_assem_spent - spent.count() < npop) {
     Record("DISCHARGE", "failed");
     return false;  // not enough room in spent buffer
@@ -224,32 +224,18 @@ void reactor::Transmute_() { Transmute_(n_assem_batch); }
 
 void reactor::Transmute_(int n_assem) {
   using cyclus::toolkit::MatVec;
-
+ 
   // Instead of doing a PopN for all assemblies, peek at comps and pop until we've hit the right # of assemblies?
   MatVec old = core.PopN(std::min(n_assem, core.count()));
-  core.Push(old);
-  if (core.count() > old.size()) {
-    // rotate untransmuted mats back to back of buffer
-    core.Push(core.PopN(core.count() - old.size()));
-  }
-   
+
  /*
- * TODO: Handle recipe update by looking up hashed state, seeing if discharge recipe exists in cyclus::context
- *       Note: Do we need to consider non-interpolated parts of the recipe too? (e.g., Pu-240 content, U-234 content...?) 
- *             Store these as ID tags as well to trigger a recipe update? 
  * TODO: Handle multiple depletion recipes, assuming non-homogeneous batches?
  */
 
-  if(refreshSpentRecipe) {     
+  // Check that all assemblies in the batch have the same composition
+  // TODO make this a loop until we've traversed to the end of the batch?
 
-     // Calculate total thermal power of depleted assemblies; 
-     // Convert from MWt => W
-     //double cyclePower = power_cap * static_cast<double>(n_assem_batch)/static_cast<double>(n_assem_core) * 1E6;
-
-     // Check that all assemblies in the batch have the same composition
-     // TODO make this a loop until we've traversed to the end of the batch?
-
-     std::vector<int> matIDs(old.size());
+  std::vector<int> matIDs(old.size());
 /*
      for(auto & mat : old) matIDs.push_back(mat->comp()->id());
      auto idx = std::adjacent_find( matIDs.begin(), matIDs.end(), std::not_equal_to<int>() );
@@ -257,11 +243,11 @@ void reactor::Transmute_(int n_assem) {
        // Split batch at idx, re-evaluate
      }   
 */     
-     bool isHomogenous = (std::adjacent_find( matIDs.begin(), matIDs.end(), std::not_equal_to<int>() ) == matIDs.end());
-     // FOR NOW: Assume everything in the batch is the same composition
-     spentFuelComp = this->Deplete_(old[0],n_assem_batch);
-     refreshSpentRecipe = false;  //TODO: Add code to check when this needs to be turned back on
-  }
+  bool isHomogenous = (std::adjacent_find( matIDs.begin(), matIDs.end(), std::not_equal_to<int>() ) == matIDs.end());
+  // FOR NOW: Assume everything in the batch is the same composition
+  spentFuelComp = this->Deplete_(old[0],n_assem_batch);
+  //refreshSpentRecipe = false;  //TODO: Add code to check when this needs to be turned back on
+
   if(!spentFuelComp) {
      throw cyclus::StateError("Spent fuel composition is not set!");
   } 
@@ -270,16 +256,27 @@ void reactor::Transmute_(int n_assem) {
      // TODO: Add in multiple spent_comps, map assemblies to compositions each time we do a depletion...
      old[i]->Transmute(spentFuelComp);
   }
+
+  // Push transmuted materials back to the bottom of the core buffer
+  core.Push(old);
+  if (core.count() > old.size()) {
+    // rotate untransmuted mats back to back of buffer
+    core.Push(core.PopN(core.count() - old.size()));
+  }
+   
+
   std::stringstream ss;
   ss << old.size() << " assemblies" << " to discharge burnup " << this->burnup << " MWd/MTHM";
   Record("TRANSMUTE", ss.str());
-  std::cerr << ss.str() << std::endl;
+  //std::cerr << ss.str() << std::endl;
 }
 
 
 //TODO - Separate transmute behaviors from ORIGEN behaviors
-cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, int n_assem) {
-    
+cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, const int n_assem, int n_cycles) {
+    if(n_cycles == -1) {
+       n_cycles = round(this->n_assem_core / this->n_assem_batch);
+    }
     OrigenInterface::cyclus2origen react;
      
     // Set ORIGEN library path
@@ -289,22 +286,46 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, int n_asse
     if(this->assembly_type == "") {
        std::stringstream ss;
        ss << "Cyborg::reactor::Deplete_() - assembly_type unspecified!" << std::endl; 
-       throw cyclus::ValueError(ss.str());
+       throw cyclus::StateError(ss.str());
     }    
     react.set_id_tag("Assembly Type",assembly_type);
         
     this->setup_origen_interp_params(react, mat);
-    this->setup_origen_power_history(react);
-
-    // TODO: Get TagManager string here for depletion state, then check if composition exists
-    // If it does, return that. Otherwise, proceed below.
-
+    this->setup_origen_power_history(react, n_cycles);
 /*
     std::cerr << "ID TAGS\n=======" << std::endl;
     react.list_id_tags();
     std::cerr << "\nINTERP PARAMS\n=======" << std::endl;
     react.list_parameters();
 */
+
+/*
+ *  Note: Do we need to consider non-interpolated parts of the recipe too? (e.g., Pu-240 content, U-234 content...?) 
+ *        Store these as ID tags as well to trigger a recipe update? 
+ */            
+
+    // If this input state (input composition, library, powers, cycle lengths) 
+    // has been previously depleted in the Cyclus context, retrieved the cached
+    // recipe. Otherwise, generate the new recipe and store it. 
+    //
+    // The input state is "hashed" via the TagManager on the Cyclus/ORIGEN interface layer
+
+    std::string depletion_state = react.get_tag_manager_string();
+    cyclus::Composition::Ptr comp_out = NULL;
+    try {
+       comp_out = context()->GetRecipe(depletion_state);
+       //if(comp_out) {
+       //   return comp_out;
+       //}
+       if(!comp_out) {
+         throw cyclus::KeyError("Empty recipe returned.");
+       }
+    }
+    catch(cyclus::KeyError ke) {      
+       cyclus::Warn<cyclus::KEY_WARNING>("Recipe lookup failed: " + std::string(ke.what()));
+    }
+    if(comp_out) return comp_out;
+
     // Create cross-section library
     react.interpolate();
 
@@ -318,7 +339,16 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, int n_asse
 
     // Update recipe based on discharge compositions from ORIGEN
     cyclus::CompMap dischargeRecipe = this->get_origen_discharge_recipe(react);
-    cyclus::Composition::Ptr comp_out = cyclus::Composition::CreateFromAtom(dischargeRecipe);
+    comp_out = cyclus::Composition::CreateFromAtom(dischargeRecipe);    
+    if(!comp_out) {
+       std::stringstream ss;
+       ss << "Error in Deplete_(); could not create discharge fuel recipe!\n";
+       throw cyclus::StateError(ss.str());
+    }
+ 
+    // Store hashed discharge recipe in Cyclus global context for future reuse
+    context()->AddRecipe(depletion_state, comp_out);
+
     return comp_out;
 }
 
@@ -359,16 +389,18 @@ void reactor::setup_origen_interp_params(OrigenInterface::cyclus2origen& react, 
        react.add_parameter(tag.first,tag.second);
        //std::cerr << "Adding interp. tag: " << tag.first << "->" << tag.second << std::endl;
     } 
+    //react.list_parameters();
     //if(this->mod_density > 0.0) react.add_parameter("Moderator Density",this->mod_density);   
 }
 
-void reactor::setup_origen_power_history(OrigenInterface::cyclus2origen& react) {
+void reactor::setup_origen_power_history(OrigenInterface::cyclus2origen& react, const int n_cycles) {
 
     std::vector<double> dp_time, dp_pow;
     dp_time.push_back(0.0);
-    // Number of cycles is assumed to be proportional to core fraction per batch
-    // i.e., 1/3 fraction => 3 cycles
-    for(size_t i=0; i < core_power_frac.size(); ++i) {
+    // Number of cycles is by default the number of batches - i.e., 3 batches => 3 cycles
+    // However, it is user-configurable to allow for partially-burnt assemblies 
+    // (i.e., for reactor decommissioning behavior)
+    for(size_t i=0; i < n_cycles; ++i) {
        // Cycle timestep is in months; use years for ORIGEN for simplicity
        dp_time.push_back(static_cast<double>(cycle_time)/12.0 + dp_time.back());
 
@@ -385,7 +417,7 @@ void reactor::setup_origen_power_history(OrigenInterface::cyclus2origen& react) 
     react.set_time_units("y");
     react.set_time_steps(dp_time); 
     
-    react.set_power_units("watt");
+    react.set_power_units("W");
     react.set_powers(dp_pow);  
 }
 
@@ -470,9 +502,9 @@ double get_iso_mass_frac(const int Z, const int A, const cyclus::Composition::Pt
    double iso_mass = 0.0;
 
    for(auto &nuc : mass_map) {
-     if( static_cast<int>(floor(nuc.first / 1E7)) == Z ) {
+     if( static_cast<int>(floor(pyne::nucname::id(nuc.first) / 1E7)) == Z ) {
        ele_mass += nuc.second;
-       if( static_cast<int>((nuc.first - Z*1E7)/1E4) == A) iso_mass += nuc.second;
+       if( static_cast<int>((pyne::nucname::id(nuc.first) - Z*1E7)/1E4) == A) iso_mass += nuc.second;
      }  
    }
    if(ele_mass <= 0.0) return -1;

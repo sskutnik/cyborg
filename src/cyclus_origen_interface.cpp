@@ -97,7 +97,8 @@ void cyclus2origen::list_id_tags() const{
   if(b_tm->listIdTags().size()==0){
     std::stringstream ss;
     ss << "Cyborg::reactor::list_id_tags(" << __LINE__ << ") : No ID tags found on this interface object!  Use set_id_tags().\n";
-    throw StateError(ss.str());
+    cyclus::Warn<cyclus::WARNING>(ss.str());
+    //throw StateError(ss.str());
   }
   for(auto tags : b_tm->listIdTags()){
     std::cout << "Tag name: " << tags << ", value: " << b_tm->getIdTag(tags) << ".\n";
@@ -193,9 +194,9 @@ void cyclus2origen::set_materials(const std::vector<int> &ids, const std::vector
   //std::cerr << "Material::initial_mass() = " << mat->initial_mass() << " grams.\n";
   //std::cerr << "Material::initial_hm_mass() = " << mat->initial_hm_mass() << " grams.\n";
 
-  //TODO: Why do we need two Origen::Material objects...?
   b_mat = mat; // Used in prob_spec_lib function.
   prob_spec_lib(b_lib,b_times,b_fluxes,b_powers); // Takes b_lib and interpolates to new burnups based on b_times and b_powers.
+ 
   auto mat2 = std::make_shared<Origen::Material>(b_lib,name,id,b_vol); // Generates new material based on b_lib from prob_spec_lib
   mat2->set_concs_at(*b_concs,0); // Concentrations are the same regardless.
   b_mat->clear();
@@ -314,7 +315,8 @@ void cyclus2origen::list_parameters() const{
   if(b_tm->listInterpTags().size()==0){
     std::stringstream ss;
     ss << "Cyborg::reactor::list_parameters(" << __LINE__ << ") : No parameters found on this tag manager!\n";
-    throw StateError(ss.str());
+    cyclus::Warn<cyclus::WARNING>(ss.str());
+    //throw StateError(ss.str());
   }
   for(auto tag : b_tm->listInterpTags()){
     std::cout << "Interp tag name: " << tag << ", value: " << b_tm->getInterpTag(tag) << ".\n";
@@ -765,15 +767,33 @@ void cyclus2origen::prob_spec_lib(Origen::SP_Library lib, const std::vector<doub
 
 const std::string cyclus2origen::get_tag_manager_string() const
 {
+  if(!b_tm) {
+     std::stringstream ss;
+     ss << "Cyborg::reactor::get_tag_manager_string(" << __LINE__ << ") : TagManager not initialized!\n";
+     throw cyclus::StateError(ss.str());
+  }
+/*
+ * SES: Shouldn't need an interpolated library to hash the state; everything needed available pre-interpolation
+  if(!b_lib) {
+     std::stringstream ss;
+     ss << "Cyborg::reactor::get_tag_manager_string(" << __LINE__ << ") : ORIGEN library not yet initialized!\n";
+     throw cyclus::StateError(ss.str());
+  }
   if(b_mat->nsteps()==0)
   {
     std::stringstream ss;
     ss << "Cyborg::reactor::get_tag_manager_string(" << __LINE__ << ") : Depletion calculation has not yet occurred.\n";
     throw cyclus::StateError(ss.str());
   }
+  //b_lib->get_tag_manager(tm);
+*/
+  if(b_times.size() == 0 || b_powers.size() == 0) {
+     std::stringstream ss;
+     ss << "WARNING: Cyborg::reactor::get_tag_manager_string(" << __LINE__ << ") : Power history not initialized!\n";
+     cyclus::Warn<cyclus::WARNING>(ss.str());
+  }
 
-  Origen::TagManager tm;
-  b_lib->get_tag_manager(tm);
+  Origen::TagManager tm(*b_tm);
 
   std::stringstream times;
   for(auto time : b_times)
