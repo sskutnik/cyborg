@@ -128,25 +128,55 @@ void reactor::EnterNotify(){
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void reactor::Tick() {
-  //std::cerr << "Tick(): cycle_step = " << cycle_step << "  discharged = " << discharged << std::endl;
-  if (!decom) {
-    // Transmute & Discharge if necessary     
-    if (cycle_step == cycle_time) {
-      Transmute_();
-    }
-    if(cycle_step >= cycle_time && !discharged) {
-      discharged = Discharge_();
-      //std::cerr << "Called discharge: result = " << discharged << "  core.count() = " << core.count() << std::endl;
-    }
-    if(discharged) { 
-      // Only load core once we've fully cleared out the fully-burnt assemblies
-      Load_();
-    }
-  }
-  else {
-    // Should ideally push out all fresh fuel first...
-    fresh.capacity(0);
-  }
+   if(retired()) {
+     Record("RETIRED", "");
+    
+     // Record the last time series entry if the reactor was operating at 
+     // the time of retirement
+     if( context()->time() == exit_time() ) {
+       if( cycle_step > 0 && cycle_step <= cycle_time &&
+           core.count() == n_assem_core) {
+         cyclus::toolkit::RecordTimeSeries<cyclus::toolkit::POWER>(this, power_cap); 
+       }
+       else {
+         cyclus::toolkit::RecordTimeSeries<cyclus::toolkit::POWER>(this, 0.0); 
+       }
+
+       // Handle transmutation of each batch in the last core
+       // i.e., oldest fuel transmuted to "full" burnup,
+       // next-oldest cut short by one cycle, etc.
+
+       // Account for potentially abbreviated final cycle length
+       double last_cycle = static_cast<double>(cycle_step) / static_cast<double>(cycle_time);
+
+       for(size_t i = core_power_frac.size(); i > 0; --i) {
+          Transmute_(n_assem_batch, i, last_cycle);
+       }       
+     }
+     // Dump remaining fresh inventory into spent fuel to be traded away
+     while(fresh.count() > 0 && spent.space() >= assem_size) {
+        spent.Push(fresh.Pop());
+     }     
+     if(fresh.count() == 0) fresh.capacity(0); 
+
+     // Attempt to discharge all transmuted assemblies from the core
+     discharged = Discharge_(n_assem_core);     
+     return;
+   } // end retired() check
+
+   // Transmute & discharge if necessary     
+   if (cycle_step == cycle_time) {
+     Transmute_();
+     Record("CYCLE_END", "");
+   }
+   if(cycle_step >= cycle_time && !discharged) {
+     discharged = Discharge_();
+     //std::cerr << "Called discharge: result = " << discharged << "  core.count() = " << core.count() << std::endl;
+   }
+   if(discharged) { 
+     // Only load core once we've fully cleared out the fully-burnt assemblies
+     Load_();
+   }
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -154,7 +184,7 @@ void reactor::Tock() {
   if (retired()) {
     return;
   }
-  //std::cerr << "TOCK: discharged = " << discharged << std::endl;
+
   if (cycle_step >= cycle_time + refuel_time || cycle_step == 0) {   
     if( core.count() == n_assem_core) {
       // Restart once the core is fully reloaded
@@ -196,9 +226,8 @@ void reactor::Load_() {
   std::stringstream ss;
   ss << n << " assemblies";
   Record("LOAD", ss.str());
-  //std::cerr << "LOADING " << ss.str() << std::endl;
   core.Push(fresh.PopN(n));
-  //std::cerr << "PUSHED " << ss.str() << std::endl;
+
 }
 
 bool reactor::Discharge_() { return Discharge_(this->n_assem_batch); }
@@ -222,9 +251,13 @@ bool reactor::Discharge_(int n_assem_discharged) {
 
 void reactor::Transmute_() { Transmute_(n_assem_batch); }
 
-void reactor::Transmute_(int n_assem) {
+void reactor::Transmute_(int n_assem, int n_cycles, double last_cycle) {
   using cyclus::toolkit::MatVec;
  
+  if(n_cycles == -1) {
+     n_cycles = round(this->n_assem_core / this->n_assem_batch);
+  }
+
   // Instead of doing a PopN for all assemblies, peek at comps and pop until we've hit the right # of assemblies?
   MatVec old = core.PopN(std::min(n_assem, core.count()));
 
@@ -245,8 +278,7 @@ void reactor::Transmute_(int n_assem) {
 */     
   bool isHomogenous = (std::adjacent_find( matIDs.begin(), matIDs.end(), std::not_equal_to<int>() ) == matIDs.end());
   // FOR NOW: Assume everything in the batch is the same composition
-  spentFuelComp = this->Deplete_(old[0],n_assem_batch);
-  //refreshSpentRecipe = false;  //TODO: Add code to check when this needs to be turned back on
+  spentFuelComp = this->Deplete_(old[0],n_assem_batch, n_cycles, last_cycle);
 
   if(!spentFuelComp) {
      throw cyclus::StateError("Spent fuel composition is not set!");
@@ -268,15 +300,11 @@ void reactor::Transmute_(int n_assem) {
   std::stringstream ss;
   ss << old.size() << " assemblies" << " to discharge burnup " << this->burnup << " MWd/MTHM";
   Record("TRANSMUTE", ss.str());
-  //std::cerr << ss.str() << std::endl;
 }
 
 
-//TODO - Separate transmute behaviors from ORIGEN behaviors
-cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, const int n_assem, int n_cycles) {
-    if(n_cycles == -1) {
-       n_cycles = round(this->n_assem_core / this->n_assem_batch);
-    }
+cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, const int n_assem, const int n_cycles, const double last_cycle) {
+   
     OrigenInterface::cyclus2origen react;
      
     // Set ORIGEN library path
@@ -291,7 +319,7 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, const int 
     react.set_id_tag("Assembly Type",assembly_type);
         
     this->setup_origen_interp_params(react, mat);
-    this->setup_origen_power_history(react, n_cycles);
+    this->setup_origen_power_history(react, n_cycles, last_cycle);
 /*
     std::cerr << "ID TAGS\n=======" << std::endl;
     react.list_id_tags();
@@ -313,18 +341,18 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, const int 
     std::string depletion_state = react.get_tag_manager_string();
     cyclus::Composition::Ptr comp_out = NULL;
     try {
-       comp_out = context()->GetRecipe(depletion_state);
-       //if(comp_out) {
-       //   return comp_out;
-       //}
+       comp_out = context()->GetRecipe(depletion_state); 
        if(!comp_out) {
          throw cyclus::KeyError("Empty recipe returned.");
+       }
+       else {
+          //TODO: Need to manually update burnup via calculation if we're using a cached recipe...
+          return comp_out;
        }
     }
     catch(cyclus::KeyError ke) {      
        cyclus::Warn<cyclus::KEY_WARNING>("Recipe lookup failed: " + std::string(ke.what()));
     }
-    if(comp_out) return comp_out;
 
     // Create cross-section library
     react.interpolate();
@@ -387,13 +415,11 @@ void reactor::setup_origen_interp_params(OrigenInterface::cyclus2origen& react, 
     //TODO: Do we do any tag vetting here, or just let ORIGEN do it?
     for(auto &tag : interp_tags) {
        react.add_parameter(tag.first,tag.second);
-       //std::cerr << "Adding interp. tag: " << tag.first << "->" << tag.second << std::endl;
     } 
-    //react.list_parameters();
     //if(this->mod_density > 0.0) react.add_parameter("Moderator Density",this->mod_density);   
 }
 
-void reactor::setup_origen_power_history(OrigenInterface::cyclus2origen& react, const int n_cycles) {
+void reactor::setup_origen_power_history(OrigenInterface::cyclus2origen& react, const int n_cycles, const double last_cycle) {
 
     std::vector<double> dp_time, dp_pow;
     dp_time.push_back(0.0);
@@ -402,7 +428,9 @@ void reactor::setup_origen_power_history(OrigenInterface::cyclus2origen& react, 
     // (i.e., for reactor decommissioning behavior)
     for(size_t i=0; i < n_cycles; ++i) {
        // Cycle timestep is in months; use years for ORIGEN for simplicity
-       dp_time.push_back(static_cast<double>(cycle_time)/12.0 + dp_time.back());
+       double time_tmp = static_cast<double>(cycle_time)/12.0;
+       if(i == (n_cycles - 1)) time_tmp *= last_cycle;
+       dp_time.push_back(time_tmp + dp_time.back());
 
        // Convert power to MWt 
        double cyclePower = power_cap * core_power_frac[i] * 1E6;

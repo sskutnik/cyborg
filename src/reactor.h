@@ -85,7 +85,7 @@ class reactor : public cyclus::Facility,
   
   /// Transmute the specified number of assemblies in the core to their
   /// fully burnt state 
-  void Transmute_(int n_assem);
+  void Transmute_(int n_assem, int n_cycles=-1, double last_cycle=1.0);
  
 
   /// Records a reactor event to the output db with the given name and note val.
@@ -100,10 +100,12 @@ class reactor : public cyclus::Facility,
   /// Store fuel info index for the given resource received on incommod.
   void index_res(cyclus::Resource::Ptr m, std::string incommod);
 
-  /// Deplete the material for this cycle
-  /// @param mat   The material to be depleted
-  //  @param n_assem Number of assemblies to be depleted (using assem_size => total HM mass) 
-  cyclus::Composition::Ptr Deplete_(cyclus::Material::Ptr, const int, int n_cycles = -1);
+  ///  Deplete the material for this cycle
+  ///  @param mat   The material to be depleted
+  ///  @param n_assem Number of assemblies to be depleted (using assem_size => total HM mass) 
+  ///  @param n_cycles Number of cycles to perform depletion (<= # of batches; used for final cycle)
+  ///  @param cycle_length Fractional length (0,1] of last cycle (used for final / decom cycle)
+  cyclus::Composition::Ptr Deplete_(cyclus::Material::Ptr, const int, const int, const double);
 
   double fuel_capacity() { return ( this->fresh.space() + this->core.space() ); }
 
@@ -118,7 +120,7 @@ class reactor : public cyclus::Facility,
   }
 
   void setup_origen_interp_params(OrigenInterface::cyclus2origen&, const cyclus::Material::Ptr);
-  void setup_origen_power_history(OrigenInterface::cyclus2origen&, const int);
+  void setup_origen_power_history(OrigenInterface::cyclus2origen&, const int, const double);
   void setup_origen_materials(OrigenInterface::cyclus2origen&, const cyclus::Material::Ptr, const int);
   cyclus::CompMap get_origen_discharge_recipe(OrigenInterface::cyclus2origen&);
 
