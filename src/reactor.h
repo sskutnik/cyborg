@@ -3,9 +3,7 @@
 
 #include <string>
 #include "cyclus.h"
-#include "cyclus_origen_interface.h"
-
-namespace cyborg {
+//#include "cyclus_origen_interface.h"
 
 /// @class reactor
 ///
@@ -34,17 +32,17 @@ namespace cyborg {
 /// describing the behavior at the tick and tock as well as the behavior
 /// upon sending and receiving materials and messages.
 
+//  Forward declaration for Cyclus-ORIGEN interface layer
+namespace OrigenInterface {
+   class cyclus2origen;
+}
+
+namespace cyborg {
+
 //  Forward declaration used for test harness
 namespace ReactorTests {
    class ReactorTest;
 }
-
-//  Forward declaration for Cyclus-ORIGEN interface layer
-/*
-namespace OrigenInterface {
-   class cyclus2origen;
-}
-*/
 
 class reactor : public cyclus::Facility,
     public cyclus::toolkit::CommodityProducer {
@@ -53,12 +51,7 @@ class reactor : public cyclus::Facility,
   /// @param ctx the cyclus context for access to simulation-wide parameters
   explicit reactor(cyclus::Context* ctx);
 
-  /// The Prime Directive
-  /// Generates code that handles all input file reading and restart operations
-  /// (e.g., reading from the database, instantiating a new object, etc.).
-
-  #pragma cyclus decl
-
+ 
   #pragma cyclus note {"doc": "CyBORG is an ORIGEN-based Reactor archetype.",\
                        "niche": "Reactor"}
 
@@ -78,7 +71,6 @@ class reactor : public cyclus::Facility,
 
   virtual void Load_();
 
-
   /// Transmute the batch that is about to be discharged from the core to its
   /// fully burnt state 
   void Transmute_();
@@ -97,9 +89,6 @@ class reactor : public cyclus::Facility,
   /// Discharge the specified number of assemblies from the core 
   bool Discharge_(const int);
 
-  /// Store fuel info index for the given resource received on incommod.
-  void index_res(cyclus::Resource::Ptr m, std::string incommod);
-
   ///  Deplete the material for this cycle
   ///  @param mat   The material to be depleted
   ///  @param n_assem Number of assemblies to be depleted (using assem_size => total HM mass) 
@@ -109,8 +98,23 @@ class reactor : public cyclus::Facility,
 
   double fuel_capacity() { return ( this->fresh.space() + this->core.space() ); }
 
+  /// Store fuel info index for the given resource received on incommod.
+  void index_res(cyclus::Resource::Ptr m, std::string incommod);
+
+  /// Material buy policy procedures
+
+  virtual void AcceptMatlTrades(const std::vector<std::pair<
+      cyclus::Trade<cyclus::Material>, cyclus::Material::Ptr> >& responses);
+
+  virtual std::set<cyclus::RequestPortfolio<cyclus::Material>::Ptr> GetMatlRequests();
+
   bool decom;
 
+  /// The Prime Directive
+  /// Generates code that handles all input file reading and restart operations
+  /// (e.g., reading from the database, instantiating a new object, etc.).
+
+  #pragma cyclus decl
 
  ////////// Data accessors /////////
 
@@ -160,7 +164,8 @@ class reactor : public cyclus::Facility,
                       "userlevel":1}
   std::string spent_fuel;
 
-  #pragma cyclus var {"tooltip":"Reactor power name",\
+  #pragma cyclus var {'default':"power",\
+                      "tooltip":"Reactor power name",\
                       "doc":"Name of commodity reactor produces",\
                       "uilabel":"Power Name"}
   std::string power_name;
@@ -294,7 +299,8 @@ class reactor : public cyclus::Facility,
   /// Reactor data library interpolation parameters expressed as key-value pairs
   /// Example tags include moderator density, fuel temperature, etc.  
   
-  #pragma cyclus var {'tooltip':"ORIGEN library interpolation tag/value pairs",\
+  #pragma cyclus var {'default':{},\
+                      'tooltip':"ORIGEN library interpolation tag/value pairs",\
                       'uilabel':"Interp. tags",\
                       'alias': ["tags", "tag", "value"],\
                       'uitype': ["oneormore", "string","double"],\
@@ -358,7 +364,7 @@ class reactor : public cyclus::Facility,
   cyclus::Composition::Ptr spentFuelComp;
                                                                    
   //// A policy for requesting material
-  cyclus::toolkit::MatlBuyPolicy buy_policy;
+  //cyclus::toolkit::MatlBuyPolicy buy_policy;
   //// A policy for sending material
   cyclus::toolkit::MatlSellPolicy sell_policy;
 

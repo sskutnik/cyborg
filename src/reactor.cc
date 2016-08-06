@@ -1,5 +1,6 @@
 #include "reactor.h"
 #include "orglib_default_location.h"
+#include "cyclus_origen_interface.h"
 #include "error.h"
 #include <math.h>
 
@@ -110,18 +111,8 @@ void reactor::EnterNotify(){
   // dummy comp, use in_recipe if provided
   nullComp = cyclus::Composition::CreateFromAtom(v);
 
-  //TODO: There has to be a way to load trades directly into the core, right?
-  buy_policy.Init(this, &fresh, "fresh fuel", this->fuel_capacity(), 1.0, 1.0, this->assem_size);
-  for(size_t i=0; i < fuel_incommods.size(); ++i) {
-     comp = nullComp; 
-     if (fuel_recipes[i] != "") {
-        comp = context()->GetRecipe(fuel_recipes[i]); 
-     }   
-     buy_policy.Set(fuel_incommods[i], comp, fuel_prefs[i]);
-  }
-  buy_policy.Start();   
-
-  sell_policy.Init(this, &spent, spent_fuel);
+  // TODO: Add a spent fuel throughput parameter
+  sell_policy.Init(this, &spent, spent_fuel, std::numeric_limits<double>::max(), false, this->assem_size);
   sell_policy.Set(spent_fuel);
   sell_policy.Start();
 }
@@ -153,14 +144,18 @@ void reactor::Tick() {
           Transmute_(n_assem_batch, i, last_cycle);
        }       
      }
+     
+     // Attempt to discharge all transmuted assemblies from the core  
+     while ( core.count() > 0) {
+        if(!Discharge_()) break;
+     }     
+     if(core.count() == 0) discharged = true;
+     
      // Dump remaining fresh inventory into spent fuel to be traded away
      while(fresh.count() > 0 && spent.space() >= assem_size) {
         spent.Push(fresh.Pop());
      }     
-     if(fresh.count() == 0) fresh.capacity(0); 
-
-     // Attempt to discharge all transmuted assemblies from the core
-     discharged = Discharge_(n_assem_core);     
+     //if(core.count() > 0) discharged = Discharge_(n_assem_core);     
      return;
    } // end retired() check
 
@@ -171,7 +166,6 @@ void reactor::Tick() {
    }
    if(cycle_step >= cycle_time && !discharged) {
      discharged = Discharge_();
-     //std::cerr << "Called discharge: result = " << discharged << "  core.count() = " << core.count() << std::endl;
    }
    if(discharged) { 
      // Only load core once we've fully cleared out the fully-burnt assemblies
@@ -181,7 +175,10 @@ void reactor::Tick() {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void reactor::Tock() {
+
   if (retired()) {
+    // Can retire sell policy once the last remaining assemblies are traded out
+    if(spent.count() == 0) sell_policy.Stop();
     return;
   }
 
@@ -214,15 +211,8 @@ void reactor::Tock() {
 
 void reactor::Load_() {
   int n = std::min(n_assem_core - core.count(), fresh.count());
-/*
-  std::cerr << "Attempting to load: " << n << " assemblies." << std::endl
-            << "fresh.count() = " << fresh.count() << "  core.count = " << core.count() << std::endl
-            << "n_assem_core = " << n_assem_core << "  n_assem_batch = " << n_assem_batch << std::endl;
-*/
-  if (n == 0) {
-    return;
-  }
-
+  if (n == 0) return;
+  
   std::stringstream ss;
   ss << n << " assemblies";
   Record("LOAD", ss.str());
@@ -245,7 +235,8 @@ bool reactor::Discharge_(int n_assem_discharged) {
   Record("DISCHARGE", ss.str());
       
   // Discharge fuel to spent fuel buffer
-  spent.Push(core.PopN(n_assem_discharged));
+  spent.Push(core.PopN(npop));
+
   return true;
 }
 
@@ -537,6 +528,87 @@ double get_iso_mass_frac(const int Z, const int A, const cyclus::Composition::Pt
    }
    if(ele_mass <= 0.0) return -1;
    return (iso_mass / ele_mass);   
+}
+
+/// Buy policy; manually configured (from cycamore::reactor) to allow for JIT fuel trading
+std::set<cyclus::RequestPortfolio<cyclus::Material>::Ptr> reactor::GetMatlRequests() {
+  using cyclus::RequestPortfolio;
+  using cyclus::Request;
+
+  std::set<RequestPortfolio<cyclus::Material>::Ptr> ports;
+  cyclus::Material::Ptr m;
+
+  // second min expression reduces assembles to amount needed until
+  // retirement if it is near.
+  int n_assem_order = n_assem_core - core.count() + n_assem_fresh - fresh.count();
+
+  if (exit_time() != -1) {
+    // the +1 accounts for the fact that the reactor is alive and gets to
+    // operate during its exit_time time step.
+    int t_left = exit_time() - context()->time() + 1;
+    int t_left_cycle = cycle_time + refuel_time - cycle_step;
+    double n_cycles_left = static_cast<double>(t_left - t_left_cycle) /
+                         static_cast<double>(cycle_time + refuel_time);
+    n_cycles_left = ceil(n_cycles_left);
+    int n_need = std::max(0.0, n_cycles_left * n_assem_batch - n_assem_fresh + n_assem_core - core.count());
+    n_assem_order = std::min(n_assem_order, n_need);
+  }
+
+  if (n_assem_order == 0 || this->retired()) {
+    return ports;
+  }
+
+  for (int i = 0; i < n_assem_order; i++) {
+    RequestPortfolio<cyclus::Material>::Ptr port(new RequestPortfolio<cyclus::Material>());
+    std::vector<Request<cyclus::Material>*> mreqs;
+    for (int j = 0; j < fuel_incommods.size(); j++) {
+      std::string commod = fuel_incommods[j];
+      double pref = fuel_prefs[j];
+      cyclus::Composition::Ptr recipe = context()->GetRecipe(fuel_recipes[j]);
+      m = cyclus::Material::CreateUntracked(assem_size, recipe);
+      Request<cyclus::Material>* r = port->AddRequest(m, this, commod, pref, true);
+      mreqs.push_back(r);
+    }
+    port->AddMutualReqs(mreqs);
+    ports.insert(port);
+  }
+
+  return ports;
+}
+
+void reactor::AcceptMatlTrades(const std::vector<
+    std::pair<cyclus::Trade<cyclus::Material>, cyclus::Material::Ptr> >& responses) {
+  std::vector<std::pair<cyclus::Trade<cyclus::Material>,
+                        cyclus::Material::Ptr> >::const_iterator trade;
+
+  std::stringstream ss;
+  int nload = std::min((int)responses.size(), n_assem_core - core.count());
+  if (nload > 0) {
+    ss << nload << " assemblies";
+    Record("LOAD", ss.str());
+  }
+
+  for (trade = responses.begin(); trade != responses.end(); ++trade) {
+    std::string commod = trade->first.request->commodity();
+    cyclus::Material::Ptr m = trade->second;
+    index_res(m, commod);
+
+    if (core.count() < n_assem_core) {
+      core.Push(m);
+    } else {
+      fresh.Push(m);
+    }
+  }
+}
+
+void reactor::index_res(cyclus::Resource::Ptr m, std::string incommod) {
+  for (int i = 0; i < fuel_incommods.size(); i++) {
+    if (fuel_incommods[i] == incommod) {
+      res_indexes[m->obj_id()] = i;
+      return;
+    }
+  }
+  throw cyclus::ValueError("cyborg::reactor - received unsupported incommod material");
 }
 
 
