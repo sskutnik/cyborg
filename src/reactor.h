@@ -150,6 +150,7 @@ class reactor : public cyclus::Facility,
 
   #pragma cyclus var { \
     "default": [], \
+    "uitype":"oneormore",\
     "uilabel": "Fresh Fuel Preference List", \
     "doc": "The preference for each type of fresh fuel requested corresponding"\
            " to each input commodity (same order).  If no preferences are " \

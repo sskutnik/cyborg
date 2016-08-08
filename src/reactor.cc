@@ -142,20 +142,28 @@ void reactor::Tick() {
 
        for(size_t i = core_power_frac.size(); i > 0; --i) {
           Transmute_(n_assem_batch, i, last_cycle);
+          // Need to manually rotate assemblies to ensure we deplete each batch 
+          // in the core. This is due to the fact that we don't "pop" each one 
+          // into spent immmediatley after trasmuting, unlike the normal case.
+          cyclus::toolkit::MatVec depleted = core.PopN(std::min(n_assem_batch, core.count()));
+          core.Push(depleted);
        }       
      }
      
      // Attempt to discharge all transmuted assemblies from the core  
+     /*
      while ( core.count() > 0) {
         if(!Discharge_()) break;
      }     
      if(core.count() == 0) discharged = true;
-     
+     */
+     if(core.count() > 0) discharged = Discharge_(n_assem_core);     
+
      // Dump remaining fresh inventory into spent fuel to be traded away
      while(fresh.count() > 0 && spent.space() >= assem_size) {
         spent.Push(fresh.Pop());
      }     
-     //if(core.count() > 0) discharged = Discharge_(n_assem_core);     
+
      return;
    } // end retired() check
 
@@ -249,36 +257,52 @@ void reactor::Transmute_(int n_assem, int n_cycles, double last_cycle) {
      n_cycles = round(this->n_assem_core / this->n_assem_batch);
   }
 
-  // Instead of doing a PopN for all assemblies, peek at comps and pop until we've hit the right # of assemblies?
+  // Check that all assemblies in the batch have the same composition
+
+  //bool isHomogenous = (std::adjacent_find( matIDs.begin(), matIDs.end(), std::not_equal_to<int>() ) == matIDs.end());
+  //spentFuelComp = this->Deplete_(old[0],n_assem_batch, n_cycles, last_cycle);
+  
   MatVec old = core.PopN(std::min(n_assem, core.count()));
 
- /*
- * TODO: Handle multiple depletion recipes, assuming non-homogeneous batches?
- */
+  // Check to see if assemblies have different compositions, 
+  // (as indicated by their material ID). If so, deplete separately.
+  std::vector<int> matIDs; 
+  for(auto & mat : old) matIDs.push_back(mat->comp()->id());  
+  //auto idx = matIDs.begin();
+  //auto idx_old = idx;
+  std::vector<int>::iterator idx = matIDs.begin();
+  std::vector<int>::iterator idx_old = idx;
+  
+  int n_subbatch = 0;
+  int index = 0;
 
-  // Check that all assemblies in the batch have the same composition
-  // TODO make this a loop until we've traversed to the end of the batch?
+  while (idx != matIDs.end()) {
+     idx = std::adjacent_find( idx_old, matIDs.end(), std::not_equal_to<int>() );
 
-  std::vector<int> matIDs(old.size());
-/*
-     for(auto & mat : old) matIDs.push_back(mat->comp()->id());
-     auto idx = std::adjacent_find( matIDs.begin(), matIDs.end(), std::not_equal_to<int>() );
-     if(idx != old.end()) {
-       // Split batch at idx, re-evaluate
-     }   
-*/     
-  bool isHomogenous = (std::adjacent_find( matIDs.begin(), matIDs.end(), std::not_equal_to<int>() ) == matIDs.end());
-  // FOR NOW: Assume everything in the batch is the same composition
-  spentFuelComp = this->Deplete_(old[0],n_assem_batch, n_cycles, last_cycle);
+     index = std::distance(matIDs.begin(), idx);
+     if(idx == matIDs.end()) {
+       // Reached the end of the IDs array; use the last entry
+       index = matIDs.size() - 1; 
+     }
+     else if(idx == idx_old) {
+       // Unique element in difference seqeuence; i.e., 1-2-3. Need to kick iterator along to continue
+       idx++;
+     }
+     n_subbatch = idx - idx_old;
 
-  if(!spentFuelComp) {
-     throw cyclus::StateError("Spent fuel composition is not set!");
+     //std::cerr << "index = " << index << "  matIDs.size() = " << matIDs.size() << "  idx == idx_old? " << (idx == idx_old) << std::endl;
+     spentFuelComp = this->Deplete_(old[index], n_subbatch, n_cycles, last_cycle);     
+     //std::cerr << "Finished deplete. old[" << index << "]->comp()->id() = " << old[index]->comp()->id() << "  matIDs[index] = " << matIDs[index] << std::endl;
+     if(!spentFuelComp) {
+        throw cyclus::StateError("Spent fuel composition is not set!");
+     } 
+     
+     // Transmute all assemblies in the homogeneous sub-batch
+     for(auto it = idx_old; it != idx; it++) {
+        old[std::distance(matIDs.begin(), it)]->Transmute(spentFuelComp);
+     }
+     idx_old = idx;
   } 
-
-  for (int i = 0; i < old.size(); i++) {
-     // TODO: Add in multiple spent_comps, map assemblies to compositions each time we do a depletion...
-     old[i]->Transmute(spentFuelComp);
-  }
 
   // Push transmuted materials back to the bottom of the core buffer
   core.Push(old);
@@ -291,6 +315,7 @@ void reactor::Transmute_(int n_assem, int n_cycles, double last_cycle) {
   std::stringstream ss;
   ss << old.size() << " assemblies" << " to discharge burnup " << this->burnup << " MWd/MTHM";
   Record("TRANSMUTE", ss.str());
+  //std::cerr << "TRANSMUTE: " << ss.str() << std::endl; 
 }
 
 
@@ -308,7 +333,7 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, const int 
        throw cyclus::StateError(ss.str());
     }    
     react.set_id_tag("Assembly Type",assembly_type);
-        
+    
     this->setup_origen_interp_params(react, mat);
     this->setup_origen_power_history(react, n_cycles, last_cycle);
 /*
@@ -355,6 +380,7 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, const int 
     react.solve();
 
     this->burnup = react.burnup_last();  // Burnup in units of MWd/MTHM
+    //std::cerr << "Deplete_(): burnup = " << burnup << "  depletion_state=\n" << depletion_state << std::endl;
 
     // Update recipe based on discharge compositions from ORIGEN
     cyclus::CompMap dischargeRecipe = this->get_origen_discharge_recipe(react);
@@ -519,6 +545,12 @@ double get_iso_mass_frac(const int Z, const int A, const cyclus::Composition::Pt
    cyclus::CompMap mass_map = comp->mass();
    double ele_mass = 0.0;
    double iso_mass = 0.0;
+
+   if(comp->mass().size() == 0) {
+     std::stringstream ss;
+     ss << "get_iso_mass_frac(): null composition found!\n";
+     throw cyclus::StateError(ss.str());
+   }
 
    for(auto &nuc : mass_map) {
      if( static_cast<int>(floor(pyne::nucname::id(nuc.first) / 1E7)) == Z ) {

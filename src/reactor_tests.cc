@@ -12,10 +12,10 @@ using cyclus::toolkit::MatQuery;
 namespace cyborg {
 namespace ReactorTests {
 
-Composition::Ptr c_uox() {
+Composition::Ptr c_uox(double enrich = 0.04) {
   cyclus::CompMap m;
-  m[id("u235")] = 0.04;
-  m[id("u238")] = 0.96;
+  m[id("u235")] = enrich; 
+  m[id("u238")] = 1.0 - enrich;
   return Composition::CreateFromMass(m);
 };
 
@@ -122,8 +122,6 @@ TEST_F(ReactorTest, Tick) {
 
 }
 
-//\TODO Add a TickDecom test
-
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 TEST_F(ReactorTest, Tock) {
   // Directly initialize reactor
@@ -227,12 +225,6 @@ TEST(ReactorXMLTests, Retire) {
    EXPECT_EQ(num_assem_recv, qr.rows.size()) 
       << "Failed to discharge all material by retirement time";
 
-   qr = sim.db().Query("Transactions", NULL);
-/*
-   for(int i=0; i < qr.rows.size(); ++i) {
-     std::cerr << qr.GetVal<int>("SenderId", i) << "->" << qr.GetVal<int>("ReceiverId", i) << std::endl;
-   }
-*/
   // Check that the reactor records the power entry on the time step it retires if operating
    int time_online = rxLife / (cycleTime + refuelTime) * cycleTime 
                        + std::min(rxLife % (cycleTime + refuelTime), cycleTime);
@@ -243,6 +235,106 @@ TEST(ReactorXMLTests, Retire) {
    EXPECT_EQ(time_online, qr.rows.size())
        << "failed to generate power for the correct number of time steps";
 }
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// Test for two-recipe (UOX only, 2 enrichments) core.
+// Output commodities & recipes should reflect a similar ratio. 
+// TODO: Eventually add in handling of UOX & MOX inputs separately?
+TEST(ReactorXMLTests, NonhomogeneousBatch) {
+
+   int simDur = 50;
+   int rxLife = 36;
+   int n_assem_core = 6;
+   int n_assem_batch = 2;
+   int cycleTime = 7;
+   int refuelTime = 0;
+   double assemSize = 300; // kg
+
+   std::stringstream simInput;
+   simInput << "  <fuel_recipes> <val>fresh_uox_34</val> <val>fresh_uox_40</val> </fuel_recipes>  "
+            << "  <fuel_incommods> <val>LEU_lo</val> <val>LEU_hi</val> </fuel_incommods>   "
+            << "  <spent_fuel>UNF</spent_fuel>  "
+            << "  <fuel_type>UOX</fuel_type> "
+            << "  <fuel_prefs> <val>1.0</val> <val>1.0</val> </fuel_prefs> "
+            << "  <cycle_time>" << cycleTime << "</cycle_time>  "
+            << "  <refuel_time>" << refuelTime << "</refuel_time>  "
+            << "  <assem_size>" << assemSize << "</assem_size>  "
+            << "  <n_assem_fresh>" << n_assem_batch << "</n_assem_fresh>  "
+            << "  <n_assem_core>" << n_assem_core << "</n_assem_core>  "
+            << "  <n_assem_batch>" << n_assem_batch << "</n_assem_batch>  "
+            << "  <power_cap>50</power_cap>  ";
+
+   cyclus::MockSim sim(cyclus::AgentSpec(":cyborg:reactor"), simInput.str(), simDur, rxLife);
+   sim.AddSource("LEU_lo").recipe("fresh_uox_34").capacity(assemSize).Finalize();
+   sim.AddSource("LEU_hi").recipe("fresh_uox_40").capacity(assemSize).Finalize();
+   sim.AddSink("UNF").Finalize();
+   sim.AddRecipe("fresh_uox_34", c_uox(0.034));
+   sim.AddRecipe("fresh_uox_40", c_uox(0.04));
+   int id = sim.Run();
+
+   // Check distribution of fuel commodity orders 
+   std::vector<Cond> conds;
+   conds.push_back(Cond("Commodity", "==", std::string("LEU_lo")));
+   QueryResult qr = sim.db().Query("Transactions", &conds);
+   int num_UOX_lo = qr.rows.size();
+      
+   conds.clear();
+   conds.push_back(Cond("Commodity", "==", std::string("LEU_hi")));
+   qr = sim.db().Query("Transactions", &conds);
+   int num_UOX_hi = qr.rows.size();
+
+   EXPECT_EQ(num_UOX_lo, num_UOX_hi) << "Did not process an equal number of 3.4 / 4.0% enriched assemblies!" << std::endl;
+
+   conds.clear();
+   conds.push_back(Cond("SenderId","==",id));
+   std::vector<int> res_ids_UNF;
+   qr = sim.db().Query("Transactions", &conds);
+   for(int i = 0; i < qr.rows.size(); ++i) {
+      res_ids_UNF.push_back(qr.GetVal<int>("ResourceId", i));
+   }
+   // Fourteen assemblies burned
+   EXPECT_EQ( res_ids_UNF.size(), 14); 
+   
+   std::vector<int> mat_ids_UNF;
+   for(auto &resId : res_ids_UNF) {
+     mat_ids_UNF.push_back(sim.GetMaterial(resId)->comp()->id());
+   }
+
+   // Pull out just the unique recipe IDs 
+   std::sort( mat_ids_UNF.begin(), mat_ids_UNF.end());
+   mat_ids_UNF.erase( std::unique( mat_ids_UNF.begin(), mat_ids_UNF.end() ), mat_ids_UNF.end() );
+
+   // Two inputs, three batches => 8 unique comps with decom batches
+   // i.e., 2x full-burnup + 2x 3-cycle decom, 2x 2-cycle decom, 2x 1-cycle decom
+   EXPECT_EQ( mat_ids_UNF.size(), 8); 
+  
+   // Check that the spent fuel materials are each 
+   // non-trivially different from one another
+   int resId, resIdComp;
+   int idx, idxComp;
+   cyclus::Material::Ptr matRef, matComp;
+   conds.push_back(Cond("SenderId", "==", id));
+   qr = sim.db().Query("Transactions", &conds);
+
+   for(int i = 0; i < qr.rows.size(); ++i) {
+
+     resId = qr.GetVal<int>("ResourceId", i);
+     matRef = sim.GetMaterial(resId);
+     cyclus::toolkit::MatQuery mq(matRef);
+
+     for(int j = i; j < qr.rows.size(); ++j) {
+       resIdComp = qr.GetVal<int>("ResourceId", j);
+       matComp = sim.GetMaterial(resIdComp);
+       if(matRef->comp()->id() == matComp->comp()->id()) {
+         EXPECT_TRUE(mq.AlmostEq(matComp));
+       }
+       else {
+         EXPECT_FALSE(mq.AlmostEq(matComp));
+       }
+     }
+  }
+}
+
 } // namespace ReactorTests
 } // namespace cyborg
 
