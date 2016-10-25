@@ -1,130 +1,90 @@
 .. _hello_world:
 
-Hello, Cyclus!
+Hello, Cyborg!
 ==============
-This pages walks you through a very simple hello world example using
-|cyclus| agents.  First make sure that you have the dependencies installed,
-namely |Cyclus|, CMake, and a recent version of Python (2.7 or 3.3+).
 
-First, you need to get the ``cycstub`` code.  Cycstub is a skeleton code base
-that you can use to quick-start new |cyclus| module development projects.
-You can grab cycstub either by using git to
-`clone the repository <https://github.com/cyclus/cycstub.git>`_ or by
-`downloading the zip file <https://github.com/cyclus/cycstub/archive/develop.zip>`_.
-Let's put this code in a ``tutorial`` directory and go into it.
+CyBORG (CYclus-Based ORiGen) is an [Origen-powered](https://scale.ornl.gov) 
+reactor analysis module for Cyclus. It uses the Origen 6.2 API and reactor 
+data libraries to perform physics-based reactor depletion calculations from 
+within Cyclus. 
 
-**Getting cycstub via git:**
+To build and use CyBORG, you will need to download the source code. 
 
-.. code-block:: bash
+You can get CyBORG either by using git to
+`clone the repository <https://github.com/sskutnik/cyborg.git>`_ or by
+`downloading the zip file <https://github.com/sskutnik/cyborg/archive/develop.zip>`_.
+Let's put this code in a ``cyborg`` directory and go into it.
 
-    $ git clone https://github.com/cyclus/cycstub.git tutorial
-    $ cd tutorial
-
-**Getting cycstub via zip:**
+**Getting cyborg via git:**
 
 .. code-block:: bash
 
-    $ curl -L https://api.github.com/repos/cyclus/cycstub/zipball > tutorial.zip
+    $ git clone https://github.com/sskuntik/cyborg.git cyborg
+    $ cd cyborg
+
+**Getting cyborg via zip:**
+
+.. code-block:: bash
+
+    $ curl -L https://api.github.com/repos/sskutnik/cyborg/zipball > cyborg.zip
     $ unzip tutorial.zip
-    $ mv cyclus-cycstub-* tutorial
-    $ cd tutorial
+    $ mv sskutnik-cyborg-* tutorial
+    $ cd cyborg
+
 
 ------------
 
-Since cycstub is a template project everything is named ``stub``. We need to
-change this to reflect the name we want our new project to be called -
-``tutorial`` here.  Cycstub comes with a renaming tool to do just this! From
-the command line, run Python in the following way:
+#Building and installing CyBORG
+
+##Installation requirements
+
+To install CyBORG, you'll need the following:
+
+* SCALE v.6.2.1 
+* Cyclus (with Cycamore)
+
+Note that the SCALE 6.2.1 release libraries are compiled using GNU gcc 4.8.3; 
+thus, if compiling Cyclus and CyBORG with a similar version of gcc, you should
+be able to build directly against the SCALE shared libraries. However, if using
+another version (e.g., gcc 4.9+ or 5.0+), you will need to rebuild SCALE from 
+source. Please consult the SCALE README for instructions on building SCALE.
+
+CyBORG doesn't require any additional third-party libraries beyond what is 
+required for Cyclus and SCALE; as long as you can build these two packages 
+on your target system, you can build CyBORG.
+
+##Building CyBORG
+
+CyBORG includes a convenient install script ``install.py``, which will try
+to locate all of the dependencies CyBORG needs to build, including the 
+appropriate SCALE shared object libraries used by ORIGEN.
+
+When building, you will likely want to point CyBORG's installer to the default
+location where it can find the tagged ORIGEN reactor data libraries. Do this
+by using the ``orglib_root`` flag with the ``install.py`` script, i.e.:
 
 .. code-block:: bash
 
-    tutorial $ python rename.py tutorial
+   cyborg $ python install.py --orglib_root=/path/to/tagged/origen/libraries
+
+##"Tagged" Origen libraries
+
+CyBORG uses the newest ``Obiwan`` package in SCALE 6.2 for reactor data library
+interpolation, based on reading reactor data library descriptor information 
+used for interpolation (e.g., enrichment, burnup, etc.) directly off of the 
+library. As of SCALE 6.2.1, this information is not directly included on the 
+libraries released with SCALE; thus, it must be added by the user. 
+
+A simple script has been developed which uses information on the 
+``arpdata.txt`` text-based database to automatically add tag information to
+Origen reactor data libraries. 
+
+**TODO:** 
+- [ ] Add information on the library tagging script
+- [ ] Add the auto-tagging script to the repository
 
 ------------
 
-Let's now change the behavior of the TutorialFacility's ``Tick()`` &
-``Tock()`` member functions to print "Hello" and "World" respectively.  To do
-this, please open up the :file:`src/tutorial_facility.cc` file in your
-favorite text editor (vim, emacs, gedit, `notepad++ <http://exofrills.org>`_).
-Change the original functions to look like:
+#Using CyBORG for physics-based depletion analysis
 
-**Original Tick() and Tock() in src/tutorial_facility.cc:**
 
-.. code-block:: c++
-
-    void TutorialFacility::Tick() {}
-
-    void TutorialFacility::Tock() {}
-
-**New Tick() and Tock() in src/tutorial_facility.cc:**
-
-.. code-block:: c++
-
-    void TutorialFacility::Tick() {std::cout << "Hello, ";}
-
-    void TutorialFacility::Tock() {std::cout << "World!\n";}
-
-------------
-
-Now that we have altered the behavior of the TutorialFacility, let's compile and
-install the ``tutorial`` project.  This done with the install.py script.
-The install script puts the project into your cyclus userspace,
-``${HOME}/.local/lib/cyclus``.
-
-.. code-block:: bash
-
-    tutorial $ python install.py
-
-------------
-
-Let's run |cyclus| with the TutorialFacility! In the directory there is
-an :file:`example.xml`. Running |cyclus| on this file with the command
-``cyclus example.xml`` should produce the following output.
-
-.. code-block:: bash
-
-    tutorial $ cyclus example.xml
-                  :
-              .CL:CC CC             _Q     _Q  _Q_Q    _Q    _Q              _Q
-            CC;CCCCCCCC:C;         /_\)   /_\)/_/\\)  /_\)  /_\)            /_\)
-            CCCCCCCCCCCCCl       __O|/O___O|/O_OO|/O__O|/O__O|/O____________O|/O__
-         CCCCCCf     iCCCLCC     /////////////////////////////////////////////////
-         iCCCt  ;;;;;.  CCCC
-        CCCC  ;;;;;;;;;. CClL.                          c
-       CCCC ,;;       ;;: CCCC  ;                   : CCCCi
-        CCC ;;         ;;  CC   ;;:                CCC`   `C;
-      lCCC ;;              CCCC  ;;;:             :CC .;;. C;   ;    :   ;  :;;
-      CCCC ;.              CCCC    ;;;,           CC ;    ; Ci  ;    :   ;  :  ;
-       iCC :;               CC       ;;;,        ;C ;       CC  ;    :   ; .
-      CCCi ;;               CCC        ;;;.      .C ;       tf  ;    :   ;  ;.
-      CCC  ;;               CCC          ;;;;;;; fC :       lC  ;    :   ;    ;:
-       iCf ;;               CC         :;;:      tC ;       CC  ;    :   ;     ;
-      fCCC :;              LCCf      ;;;:         LC :.  ,: C   ;    ;   ; ;   ;
-      CCCC  ;;             CCCC    ;;;:           CCi `;;` CC.  ;;;; :;.;.  ; ,;
-        CCl ;;             CC    ;;;;              CCC    CCL
-       tCCC  ;;        ;; CCCL  ;;;                  tCCCCC.
-        CCCC  ;;     :;; CCCCf  ;                     ,L
-         lCCC   ;;;;;;  CCCL
-         CCCCCC  :;;  fCCCCC
-          . CCCC     CCCC .
-           .CCCCCCCCCCCCCi
-              iCCCCCLCf
-               .  C. ,
-                  :
-    Hello, World!
-    Hello, World!
-    Hello, World!
-    Hello, World!
-    Hello, World!
-    Hello, World!
-    Hello, World!
-    Hello, World!
-    Hello, World!
-    Hello, World!
-
-    Status: Cyclus run successful!
-    Output location: cyclus.sqlite
-    Simulation ID: 0ae730e0-a9a8-4576-afaa-d1db6399d5a2
-
-If you look in the input file you'll see that the simulation duration was set
-to 10.  This is why "Hello, World!" is printed ten times.
