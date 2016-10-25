@@ -644,7 +644,7 @@ void reactor::index_res(cyclus::Resource::Ptr m, std::string incommod) {
 }
 
 
-extern "C" cyclus::Agent* Constructreactor(cyclus::Context* ctx) {
+extern "C" cyclus::Agent* ConstructReactor(cyclus::Context* ctx) {
   return new reactor(ctx);
 }
 
