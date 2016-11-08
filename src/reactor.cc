@@ -10,29 +10,29 @@ namespace cyborg {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // pragmas
 
-#pragma cyclus def schema cyborg::reactor
+#pragma cyclus def schema cyborg::Reactor
 
-#pragma cyclus def annotations cyborg::reactor
+#pragma cyclus def annotations cyborg::Reactor
 
-#pragma cyclus def initinv cyborg::reactor
+#pragma cyclus def initinv cyborg::Reactor
 
-#pragma cyclus def snapshotinv cyborg::reactor
+#pragma cyclus def snapshotinv cyborg::Reactor
 
-#pragma cyclus def infiletodb cyborg::reactor
+#pragma cyclus def infiletodb cyborg::Reactor
 
-#pragma cyclus def snapshot cyborg::reactor
+#pragma cyclus def snapshot cyborg::Reactor
 
-#pragma cyclus def clone cyborg::reactor
+#pragma cyclus def clone cyborg::Reactor
 
 //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-void reactor::InitFrom(reactor* m) {
-#pragma cyclus impl initfromcopy cyborg::reactor
+void Reactor::InitFrom(Reactor* m) {
+#pragma cyclus impl initfromcopy cyborg::Reactor
  cyclus::toolkit::CommodityProducer::Copy(m);
 }
 
 //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-void reactor::InitFrom(cyclus::QueryableBackend* b) {
-  #pragma cyclus impl initfromdb cyborg::reactor
+void Reactor::InitFrom(cyclus::QueryableBackend* b) {
+  #pragma cyclus impl initfromdb cyborg::Reactor
 
   namespace tk = cyclus::toolkit;
   tk::CommodityProducer::Add(tk::Commodity(power_name),
@@ -42,22 +42,22 @@ void reactor::InitFrom(cyclus::QueryableBackend* b) {
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-reactor::reactor(cyclus::Context* ctx) : cyclus::Facility(ctx), decom(false), 
+Reactor::Reactor(cyclus::Context* ctx) : cyclus::Facility(ctx), decom(false), 
                                          power_cap(0.0), assem_size(0.0),
                                          n_assem_batch(0), n_assem_core(0),
                                          lib_path(ORIGEN_LIBS_DEFAULT),
                                          spent_fuel("spent_fuel")  {
-  cyclus::Warn<cyclus::EXPERIMENTAL_WARNING>("The CyBORG reactor is highly experimental.");
+  cyclus::Warn<cyclus::EXPERIMENTAL_WARNING>("The CyBORG Reactor is highly experimental.");
     
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-std::string reactor::str() {
+std::string Reactor::str() {
   return Facility::str();
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-void reactor::EnterNotify(){
+void Reactor::EnterNotify(){
 
   cyclus::Facility::EnterNotify();
 
@@ -65,11 +65,11 @@ void reactor::EnterNotify(){
   size_t n = fuel_incommods.size();
   std::stringstream ss;
   if(fuel_prefs.size() > 0 && fuel_prefs.size() != n) {
-     ss << "cyborg::reactor has " << fuel_prefs.size() 
+     ss << "cyborg::Reactor has " << fuel_prefs.size() 
         << " fuel preferences, expected " << n << "\n";
   }
   if(fuel_recipes.size() != n) {
-     ss << "cyborg::reactor has " << fuel_recipes.size() 
+     ss << "cyborg::Reactor has " << fuel_recipes.size() 
         << " input recipes, expected " << n << "\n";
   }
 
@@ -83,7 +83,7 @@ void reactor::EnterNotify(){
                    std::bind1st(std::multiplies<double>(),1.0/powNorm));    
      }
      else {
-        ss << "cyborg::reactor has " << core_power_frac.size() 
+        ss << "cyborg::Reactor has " << core_power_frac.size() 
            << " values for batch power fraction, however " 
            << " # of batches (n_assem_core / n_assem_batch) = " 
            << n_batch << "\n";
@@ -118,11 +118,11 @@ void reactor::EnterNotify(){
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-void reactor::Tick() {
+void Reactor::Tick() {
    if(retired()) {
      Record("RETIRED", "");
     
-     // Record the last time series entry if the reactor was operating at 
+     // Record the last time series entry if the Reactor was operating at 
      // the time of retirement
      if( context()->time() == exit_time() ) {
        if( cycle_step > 0 && cycle_step <= cycle_time &&
@@ -182,7 +182,7 @@ void reactor::Tick() {
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-void reactor::Tock() {
+void Reactor::Tock() {
 
   if (retired()) {
     // Can retire sell policy once the last remaining assemblies are traded out
@@ -217,7 +217,7 @@ void reactor::Tock() {
 }
 
 
-void reactor::Load_() {
+void Reactor::Load_() {
   int n = std::min(n_assem_core - core.count(), fresh.count());
   if (n == 0) return;
   
@@ -228,9 +228,9 @@ void reactor::Load_() {
 
 }
 
-bool reactor::Discharge_() { return Discharge_(this->n_assem_batch); }
+bool Reactor::Discharge_() { return Discharge_(this->n_assem_batch); }
 
-bool reactor::Discharge_(int n_assem_discharged) {
+bool Reactor::Discharge_(int n_assem_discharged) {
 
   int npop = std::min(n_assem_discharged, core.count());
   if (n_assem_spent - spent.count() < npop) {
@@ -248,9 +248,9 @@ bool reactor::Discharge_(int n_assem_discharged) {
   return true;
 }
 
-void reactor::Transmute_() { Transmute_(n_assem_batch); }
+void Reactor::Transmute_() { Transmute_(n_assem_batch); }
 
-void reactor::Transmute_(int n_assem, int n_cycles, double last_cycle) {
+void Reactor::Transmute_(int n_assem, int n_cycles, double last_cycle) {
   using cyclus::toolkit::MatVec;
  
   if(n_cycles == -1) {
@@ -319,7 +319,7 @@ void reactor::Transmute_(int n_assem, int n_cycles, double last_cycle) {
 }
 
 
-cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, const int n_assem, const int n_cycles, const double last_cycle) {
+cyclus::Composition::Ptr Reactor::Deplete_(cyclus::Material::Ptr mat, const int n_assem, const int n_cycles, const double last_cycle) {
    
     OrigenInterface::cyclus2origen react;
      
@@ -329,7 +329,7 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, const int 
     // Set ID tags
     if(this->assembly_type == "") {
        std::stringstream ss;
-       ss << "Cyborg::reactor::Deplete_() - assembly_type unspecified!" << std::endl; 
+       ss << "Cyborg::Reactor::Deplete_() - assembly_type unspecified!" << std::endl; 
        throw cyclus::StateError(ss.str());
     }    
     react.set_id_tag("Assembly Type",assembly_type);
@@ -397,13 +397,13 @@ cyclus::Composition::Ptr reactor::Deplete_(cyclus::Material::Ptr mat, const int 
     return comp_out;
 }
 
-void reactor::setup_origen_interp_params(OrigenInterface::cyclus2origen& react, const cyclus::Material::Ptr mat) {
+void Reactor::setup_origen_interp_params(OrigenInterface::cyclus2origen& react, const cyclus::Material::Ptr mat) {
     // Set Interpolable parameters   
     if(boost::to_upper_copy(this->fuel_type) == "UOX") {
        double enrich = get_iso_mass_frac(92, 235, mat->comp()) * 100.0;
        if(enrich <= 0.0 || enrich > 100.0) {         
           std::stringstream ss;
-          ss << "Cyborg::reactor::Deplete_(); invalid U-235 enrichment!"
+          ss << "Cyborg::Reactor::Deplete_(); invalid U-235 enrichment!"
              << " Calculated enrichment = " << enrich << "\n";
           throw cyclus::ValueError(ss.str());
        }      
@@ -415,13 +415,13 @@ void reactor::setup_origen_interp_params(OrigenInterface::cyclus2origen& react, 
 
        if(fr_pu239 <= 0.0 || fr_pu239 > 100.0) {         
           std::stringstream ss;
-          ss << "Cyborg::reactor::Deplete_(); invalid Pu-239 enrichment!"
+          ss << "Cyborg::Reactor::Deplete_(); invalid Pu-239 enrichment!"
              << " Calculated enrichment = " << fr_pu239 << "\n";
           throw cyclus::ValueError(ss.str());
        }             
        if(fr_pu <= 0.0 || fr_pu > 100.0) {         
           std::stringstream ss;
-          ss << "Cyborg::reactor::Deplete_(); invalid Pu heavy metal fraction!"
+          ss << "Cyborg::Reactor::Deplete_(); invalid Pu heavy metal fraction!"
              << " Calculated Pu fraction = " << fr_pu << "\n";
           throw cyclus::ValueError(ss.str());
        }      
@@ -436,13 +436,13 @@ void reactor::setup_origen_interp_params(OrigenInterface::cyclus2origen& react, 
     //if(this->mod_density > 0.0) react.add_parameter("Moderator Density",this->mod_density);   
 }
 
-void reactor::setup_origen_power_history(OrigenInterface::cyclus2origen& react, const int n_cycles, const double last_cycle) {
+void Reactor::setup_origen_power_history(OrigenInterface::cyclus2origen& react, const int n_cycles, const double last_cycle) {
 
     std::vector<double> dp_time, dp_pow;
     dp_time.push_back(0.0);
     // Number of cycles is by default the number of batches - i.e., 3 batches => 3 cycles
     // However, it is user-configurable to allow for partially-burnt assemblies 
-    // (i.e., for reactor decommissioning behavior)
+    // (i.e., for Reactor decommissioning behavior)
     for(size_t i=0; i < n_cycles; ++i) {
        // Cycle timestep is in months; use years for ORIGEN for simplicity
        double time_tmp = static_cast<double>(cycle_time)/12.0;
@@ -466,7 +466,7 @@ void reactor::setup_origen_power_history(OrigenInterface::cyclus2origen& react, 
     react.set_powers(dp_pow);  
 }
 
-void reactor::setup_origen_materials(OrigenInterface::cyclus2origen& react, const cyclus::Material::Ptr mat, const int n_assem) {
+void Reactor::setup_origen_materials(OrigenInterface::cyclus2origen& react, const cyclus::Material::Ptr mat, const int n_assem) {
     // Pass nuclide IDs and masses to ORIGEN
     std::vector<int> in_ids;
     std::vector<double> mass_fraction;
@@ -492,7 +492,7 @@ void reactor::setup_origen_materials(OrigenInterface::cyclus2origen& react, cons
 }
 
 // Get materials and convert nuclide ids back to Cyclus format
-cyclus::CompMap reactor::get_origen_discharge_recipe(OrigenInterface::cyclus2origen& react) {
+cyclus::CompMap Reactor::get_origen_discharge_recipe(OrigenInterface::cyclus2origen& react) {
 
     std::vector<int> org_id;
     react.get_ids_zzzaaai(org_id);
@@ -518,7 +518,7 @@ cyclus::CompMap reactor::get_origen_discharge_recipe(OrigenInterface::cyclus2ori
     return v;
 }
 
-void reactor::Record(std::string name, std::string val) {
+void Reactor::Record(std::string name, std::string val) {
   context()
       ->NewDatum("ReactorEvents")
       ->AddVal("AgentId", id())
@@ -562,8 +562,8 @@ double get_iso_mass_frac(const int Z, const int A, const cyclus::Composition::Pt
    return (iso_mass / ele_mass);   
 }
 
-/// Buy policy; manually configured (from cycamore::reactor) to allow for JIT fuel trading
-std::set<cyclus::RequestPortfolio<cyclus::Material>::Ptr> reactor::GetMatlRequests() {
+/// Buy policy; manually configured (from cycamore::Reactor) to allow for JIT fuel trading
+std::set<cyclus::RequestPortfolio<cyclus::Material>::Ptr> Reactor::GetMatlRequests() {
   using cyclus::RequestPortfolio;
   using cyclus::Request;
 
@@ -575,7 +575,7 @@ std::set<cyclus::RequestPortfolio<cyclus::Material>::Ptr> reactor::GetMatlReques
   int n_assem_order = n_assem_core - core.count() + n_assem_fresh - fresh.count();
 
   if (exit_time() != -1) {
-    // the +1 accounts for the fact that the reactor is alive and gets to
+    // the +1 accounts for the fact that the Reactor is alive and gets to
     // operate during its exit_time time step.
     int t_left = exit_time() - context()->time() + 1;
     int t_left_cycle = cycle_time + refuel_time - cycle_step;
@@ -608,7 +608,7 @@ std::set<cyclus::RequestPortfolio<cyclus::Material>::Ptr> reactor::GetMatlReques
   return ports;
 }
 
-void reactor::AcceptMatlTrades(const std::vector<
+void Reactor::AcceptMatlTrades(const std::vector<
     std::pair<cyclus::Trade<cyclus::Material>, cyclus::Material::Ptr> >& responses) {
   std::vector<std::pair<cyclus::Trade<cyclus::Material>,
                         cyclus::Material::Ptr> >::const_iterator trade;
@@ -633,19 +633,19 @@ void reactor::AcceptMatlTrades(const std::vector<
   }
 }
 
-void reactor::index_res(cyclus::Resource::Ptr m, std::string incommod) {
+void Reactor::index_res(cyclus::Resource::Ptr m, std::string incommod) {
   for (int i = 0; i < fuel_incommods.size(); i++) {
     if (fuel_incommods[i] == incommod) {
       res_indexes[m->obj_id()] = i;
       return;
     }
   }
-  throw cyclus::ValueError("cyborg::reactor - received unsupported incommod material");
+  throw cyclus::ValueError("cyborg::Reactor - received unsupported incommod material");
 }
 
 
-extern "C" cyclus::Agent* Constructreactor(cyclus::Context* ctx) {
-  return new reactor(ctx);
+extern "C" cyclus::Agent* ConstructReactor(cyclus::Context* ctx) {
+  return new Reactor(ctx);
 }
 
 }  // namespace cyborg

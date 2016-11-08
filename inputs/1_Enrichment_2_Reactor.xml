@@ -1,14 +1,16 @@
-<!-- 1 Enrichment 2 Reactors -->
+<!-- 1 Enrichment 2 reactors -->
 
 <simulation>
   <control>
-    <duration>100</duration>
+    <duration>500</duration>
     <startmonth>1</startmonth>
     <startyear>2000</startyear>
-  <solver><config><coin-or><timeout>100</timeout><verbose>1</verbose></coin-or></config></solver></control>
+<!--  <solver><config><coin-or><timeout>100</timeout><verbose>1</verbose></coin-or></config></solver> -->
+  </control>
 
   <archetypes>
     <spec> <lib>cycamore</lib> <name>Enrichment</name> </spec>
+    <spec> <lib>cycamore</lib> <name>Storage</name> </spec>
     <spec> <lib>cyborg</lib> <name>Reactor</name> </spec>
     <spec> <lib>agents</lib>   <name>NullRegion</name> </spec>
     <spec> <lib>agents</lib>   <name>NullInst</name> </spec>
@@ -22,14 +24,14 @@
         <feed_recipe>natl_u</feed_recipe>
         <product_commod>enriched_u</product_commod>
         <tails_commod>ef_tails</tails_commod>
-        <swu_capacity>30000.01</swu_capacity>
-        <initial_feed>3e6</initial_feed>
+        <swu_capacity>60000.01</swu_capacity>
+        <initial_feed>2e7</initial_feed>
       </Enrichment>
     </config>
   </facility>
 
   <facility>
-    <name>Reactor</name>
+    <name>reactor</name>
     <config>
       <Reactor>
         <power_cap>100.0</power_cap>
@@ -38,17 +40,40 @@
         <fuel_incommods>  <val>enriched_u</val>           </fuel_incommods>
         <cycle_time>12</cycle_time>
         <refuel_time>1</refuel_time>
-        <reactor_lifetime>480</reactor_lifetime>
+        <reactor_lifetime>13</reactor_lifetime>
         <assembly_type>w17x17</assembly_type>
         <fuel_type>UOX</fuel_type>
         <n_assem_core>30</n_assem_core>
         <n_assem_batch>10</n_assem_batch>
+        <n_assem_spent>100</n_assem_spent>
+        <spent_fuel>hot_UNF</spent_fuel>
       </Reactor>
     </config>
   </facility>
 
   <facility>
-      <name>Reactor1</name>
+    <name>reactor1</name>
+      <config>
+        <Reactor>
+          <power_cap>110.0</power_cap>
+          <assem_size>32.5</assem_size>
+          <fuel_recipes>    <val>lwr_fuel_recipe2</val>   </fuel_recipes>
+          <fuel_incommods>  <val>enriched_u</val>         </fuel_incommods>
+          <cycle_time>12</cycle_time>
+          <refuel_time>1</refuel_time>
+          <reactor_lifetime>13</reactor_lifetime>
+          <assembly_type>w17x17</assembly_type>
+          <fuel_type>UOX</fuel_type>
+          <n_assem_core>30</n_assem_core>
+          <n_assem_batch>10</n_assem_batch>
+          <spent_fuel>hot_UNF</spent_fuel>
+        </Reactor>
+      </config>
+    </facility>
+
+
+  <facility>
+      <name>Reactor2</name>
       <config>
         <Reactor>
           <power_cap>110.0</power_cap>
@@ -64,8 +89,19 @@
           <n_assem_batch>10</n_assem_batch>
         </Reactor>
       </config>
-    </facility>
+  </facility>
 
+  <facility>
+    <name>ISFSI</name>
+    <config>
+      <Storage>
+        <in_commods> <val>hot_UNF</val> </in_commods>
+        <in_commod_prefs> <val>1</val> </in_commod_prefs>
+        <out_commods> <val>UNF_cans</val> </out_commods>
+        <max_inv_size>100</max_inv_size>
+      </Storage>
+    </config>
+  </facility>
 
   <facility>
       <name>Reactor2</name>
@@ -97,11 +133,15 @@
           <number>1</number>
         </entry>
         <entry>
-          <prototype>Reactor</prototype>
+          <prototype>reactor</prototype>
           <number>1</number>
         </entry>
         <entry>
-          <prototype>Reactor1</prototype>
+          <prototype>reactor1</prototype>
+          <number>1</number>
+        </entry>
+        <entry>
+          <prototype>ISFSI</prototype>
           <number>1</number>
         </entry>
         <entry>
