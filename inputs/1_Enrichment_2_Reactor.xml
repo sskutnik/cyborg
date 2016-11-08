@@ -22,8 +22,8 @@
         <feed_recipe>natl_u</feed_recipe>
         <product_commod>enriched_u</product_commod>
         <tails_commod>ef_tails</tails_commod>
-        <swu_capacity>60000.01</swu_capacity>
-        <initial_feed>2e6</initial_feed>
+        <swu_capacity>30000.01</swu_capacity>
+        <initial_feed>3e6</initial_feed>
       </Enrichment>
     </config>
   </facility>
@@ -66,6 +66,26 @@
       </config>
     </facility>
 
+
+  <facility>
+      <name>Reactor2</name>
+      <config>
+        <Reactor>
+          <power_cap>110.0</power_cap>
+          <assem_size>32.5</assem_size>
+          <fuel_recipes>    <val>lwr_fuel_recipe</val>      </fuel_recipes>
+          <fuel_incommods>  <val>enriched_u</val>           </fuel_incommods>
+          <cycle_time>12</cycle_time>
+          <refuel_time>1</refuel_time>
+          <reactor_lifetime>480</reactor_lifetime>
+          <assembly_type>w17x17</assembly_type>
+          <fuel_type>UOX</fuel_type>
+          <n_assem_core>30</n_assem_core>
+          <n_assem_batch>10</n_assem_batch>
+        </Reactor>
+      </config>
+  </facility>
+
   <region>
     <name>SingleRegion</name>
     <config><NullRegion/></config>
@@ -82,6 +102,10 @@
         </entry>
         <entry>
           <prototype>Reactor1</prototype>
+          <number>1</number>
+        </entry>
+        <entry>
+          <prototype>Reactor2</prototype>
           <number>1</number>
         </entry>
       </initialfacilitylist>

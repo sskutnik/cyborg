@@ -215,7 +215,7 @@ TEST(ReactorXMLTests, Retire) {
    conds.push_back(Cond("ReceiverId", "==", id));
    QueryResult qr = sim.db().Query("Transactions", &conds);
    EXPECT_EQ(num_assem_recv, qr.rows.size()) << "Failed to stop ordering near retirement.";
-   
+
    // reactor should discharge all fuel before/by retirement  
    // Due to discrete material handling, assemblies in == assemblies out, 
    // (i.e., sell transactions == buy transactions)
