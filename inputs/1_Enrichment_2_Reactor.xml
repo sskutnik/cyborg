@@ -24,13 +24,8 @@
         <feed_recipe>natl_u</feed_recipe>
         <product_commod>enriched_u</product_commod>
         <tails_commod>ef_tails</tails_commod>
-<<<<<<< Updated upstream
-        <swu_capacity>30000.01</swu_capacity>
-        <initial_feed>3e6</initial_feed>
-=======
         <swu_capacity>60000.01</swu_capacity>
         <initial_feed>2e7</initial_feed>
->>>>>>> Stashed changes
       </Enrichment>
     </config>
   </facility>
@@ -75,7 +70,6 @@
         </Reactor>
       </config>
     </facility>
-<<<<<<< Updated upstream
 
 
   <facility>
@@ -97,7 +91,6 @@
       </config>
   </facility>
 
-=======
 <!---
     <facility>
       <name>ISFSI</name>
@@ -111,7 +104,7 @@
       </config>
     </facility>
 -->
->>>>>>> Stashed changes
+
   <region>
     <name>SingleRegion</name>
     <config><NullRegion/></config>
@@ -135,14 +128,8 @@
           <prototype>ISFSI</prototype>
           <number>1</number>
         </entry>
-<<<<<<< Updated upstream
-        <entry>
-          <prototype>Reactor2</prototype>
-          <number>1</number>
-        </entry>
-=======
 -->
->>>>>>> Stashed changes
+
       </initialfacilitylist>
       <config><NullInst/></config>
     </institution>
