@@ -5,15 +5,15 @@
 #include "cyclus.h"
 //#include "cyclus_origen_interface.h"
 
-/// @class reactor
+/// @class Reactor
 ///
-/// cyborg::reactor is an ORIGEN-based reactor archetype capable of dynamically
+/// cyborg::Reactor is an ORIGEN-based reactor archetype capable of dynamically
 /// calculating spent fuel recipes based on reactor physics and depletion 
 /// calculations using ORIGEN
 ///
 /// @section intro Introduction
 ///
-/// The CyBORG reactor is largely derived from the cycamore::reactor class,
+/// The CyBORG Reactor is largely derived from the cycamore::Reactor class,
 /// save for the fact that it uses ORIGEN for depletion to calculate discharge
 /// fuel recipes as-needed. As a result, CyBORG infers reactor data interpolation
 /// parameters from the input fuel recipe and fuel type (UOX/MOX/other), as well
@@ -44,28 +44,28 @@ namespace ReactorTests {
    class ReactorTest;
 }
 
-class reactor : public cyclus::Facility,
+class Reactor : public cyclus::Facility,
     public cyclus::toolkit::CommodityProducer {
  public:
-  /// Constructor for reactor Class
+  /// Constructor for Reactor Class
   /// @param ctx the cyclus context for access to simulation-wide parameters
-  explicit reactor(cyclus::Context* ctx);
+  explicit Reactor(cyclus::Context* ctx);
 
  
   #pragma cyclus note {"doc": "CyBORG is an ORIGEN-based Reactor archetype.",\
                        "niche": "Reactor"}
 
-  /// A verbose printer for the reactor
+  /// A verbose printer for the Reactor
   virtual std::string str();
 
   /// Sets up the Reactor's trade requests
   virtual void EnterNotify();
 
-  /// The handleTick function specific to the reactor.
+  /// The handleTick function specific to the Reactor.
   /// @param time the time of the tick
   virtual void Tick();
 
-  /// The handleTick function specific to the reactor.
+  /// The handleTick function specific to the Reactor.
   /// @param time the time of the tock
   virtual void Tock();
 
@@ -80,7 +80,7 @@ class reactor : public cyclus::Facility,
   void Transmute_(int n_assem, int n_cycles=-1, double last_cycle=1.0);
  
 
-  /// Records a reactor event to the output db with the given name and note val.
+  /// Records a Reactor event to the output db with the given name and note val.
   void Record(std::string name, std::string val);
 
   /// Discharge a batch from the core 
@@ -134,7 +134,7 @@ class reactor : public cyclus::Facility,
 
   #pragma cyclus var {'default':[],\
                       "tooltip":"Input fuel commodity",\
-                      "doc":"Fuel name accepted by this reactor",\
+                      "doc":"Fuel name accepted by this Reactor",\
                       "uitype":["oneormore","incommodity"],\
                       "uilabel":"Fuel Commodity",\
                       "userlevel":1}
@@ -142,7 +142,7 @@ class reactor : public cyclus::Facility,
 
   #pragma cyclus var {'default':[],\
                       "tooltip":"Input fuel recipe",\
-                      "doc":"Fuel recipe accepted by reactor",\
+                      "doc":"Fuel recipe accepted by Reactor",\
                       "uitype":["oneormore","recipe"],\
                       "uilabel":"Fuel Recipe",\
                       "userlevel":1}
@@ -167,7 +167,7 @@ class reactor : public cyclus::Facility,
 
   #pragma cyclus var {'default':"power",\
                       "tooltip":"Reactor power name",\
-                      "doc":"Name of commodity reactor produces",\
+                      "doc":"Name of commodity Reactor produces",\
                       "uilabel":"Power Name"}
   std::string power_name;
 
@@ -216,7 +216,7 @@ class reactor : public cyclus::Facility,
     "uilabel": "Maximum Spent Fuel Inventory", \
     "units": "assemblies", \
     "doc": "Number of spent fuel assemblies that can be stored on-site before" \
-           " reactor operation stalls.", \
+           " Reactor operation stalls.", \
     "userlevel":1 }
   int n_assem_spent;
 
@@ -252,7 +252,7 @@ class reactor : public cyclus::Facility,
   int reactor_lifetime; 
  
   /// fuel_type is used to determine which fuel recipe parameters 
-  /// to extract for reactor data library interpolation.
+  /// to extract for Reactor data library interpolation.
   /// e.g., UOX uses U-235 enrichment
   ///       MOX uses Pu-239 enrichment and total Pu fraction
   ///       "Other" does not use recipe-based values for interpolation

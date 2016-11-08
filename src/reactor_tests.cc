@@ -2,7 +2,7 @@
 #include "facility_tests.h"
 #include "agent_tests.h"
 
-using cyborg::reactor;
+using cyborg::Reactor;
 using pyne::nucname::id;
 using cyclus::Cond;
 using cyclus::QueryResult;
@@ -21,7 +21,7 @@ Composition::Ptr c_uox(double enrich = 0.04) {
 
 
 void ReactorTest::SetUp() {
-  src_facility_ = new cyborg::reactor(tc_.get());
+  src_facility_ = new cyborg::Reactor(tc_.get());
   InitParameters();
   //SetUpReactor();
 }
@@ -87,7 +87,7 @@ void ReactorTest::set_cycle_step(const int t) { src_facility_->cycle_step = t; }
 void ReactorTest::set_discharged(const bool d) { src_facility_->discharged = d; }
 int  ReactorTest::get_cycle_time() { return src_facility_->cycle_time; }
 
-void ReactorTest::TestInitState(cyborg::reactor* fac){
+void ReactorTest::TestInitState(cyborg::Reactor* fac){
   EXPECT_EQ(in_r1[0], fac->fuel_recipes[0]) << "Reactor fuel input recipe not set correclty!\n";
   EXPECT_EQ(in_c1[0], fac->fuel_incommods[0]) << "Reactor input fuel commodity not set correctly!\n";
   EXPECT_EQ(out_c1, fac->spent_fuel) << "Reactor spent fuel commodity not set correctly!\n";
@@ -99,12 +99,12 @@ void ReactorTest::TestInitState(cyborg::reactor* fac){
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 TEST_F(ReactorTest, Print) {
   EXPECT_NO_THROW(std::string s = src_facility_->str());
-  // Test reactor specific aspects of the print method here
+  // Test Reactor specific aspects of the print method here
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 TEST_F(ReactorTest, Tick) {
-  // Directly initialize reactor
+  // Directly initialize Reactor
   SetUpReactor();
   TestInitState(src_facility_);
  
@@ -112,19 +112,19 @@ TEST_F(ReactorTest, Tick) {
   src_facility_->Load_();
   set_discharged(false);
 
-  // Loop through a full reactor cycle
+  // Loop through a full Reactor cycle
   for(size_t i=0; i < get_cycle_time() + 2; ++i) {
     set_cycle_step(i); 
     //EXPECT_NO_THROW(src_facility_->Tick()); 
     src_facility_->Tick(); 
   }
-  // Test reactor-specific behaviors of the Tick function here...
+  // Test Reactor-specific behaviors of the Tick function here...
 
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 TEST_F(ReactorTest, Tock) {
-  // Directly initialize reactor
+  // Directly initialize Reactor
   SetUpReactor();
   TestInitState(src_facility_);
 
@@ -132,16 +132,16 @@ TEST_F(ReactorTest, Tock) {
   src_facility_->Load_();
   set_discharged(false);
 
-  // Loop through a full reactor cycle
+  // Loop through a full Reactor cycle
   for(size_t i=0; i < get_cycle_time() + 2; ++i) {
     set_cycle_step(i); 
     EXPECT_NO_THROW(src_facility_->Tock()); 
   }
-  // Test reactor-specific behaviors of the Tick function here...
+  // Test Reactor-specific behaviors of the Tick function here...
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-// Reproduces cycamore::reactor test to verify correct number of assemblies 
+// Reproduces cycamore::Reactor test to verify correct number of assemblies 
 // are popped from core each cycle
 TEST(ReactorXMLTests, BatchSizes) {
   std::string config =
@@ -163,7 +163,7 @@ TEST(ReactorXMLTests, BatchSizes) {
      "  </tags>";
  
   int simdur = 50;
-  cyclus::MockSim sim(cyclus::AgentSpec(":cyborg:reactor"), config, simdur);
+  cyclus::MockSim sim(cyclus::AgentSpec(":cyborg:Reactor"), config, simdur);
   sim.AddSource("LEU").Finalize();
   sim.AddRecipe("uox", c_uox());
 
@@ -175,8 +175,8 @@ TEST(ReactorXMLTests, BatchSizes) {
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-// Test for proper retirement of cyborg::reactor at end of lifetime
-// Based on cycamore::reactor test with minor modifications
+// Test for proper retirement of cyborg::Reactor at end of lifetime
+// Based on cycamore::Reactor test with minor modifications
 TEST(ReactorXMLTests, Retire) {
 
    int simDur = 50;
@@ -200,13 +200,13 @@ TEST(ReactorXMLTests, Retire) {
             << "  <n_assem_batch>" << n_assem_batch << "</n_assem_batch>  "
             << "  <power_cap>30</power_cap>  ";
  
-   cyclus::MockSim sim(cyclus::AgentSpec(":cyborg:reactor"), simInput.str(), simDur, rxLife);
+   cyclus::MockSim sim(cyclus::AgentSpec(":cyborg:Reactor"), simInput.str(), simDur, rxLife);
    sim.AddSource("LEU").Finalize();
    sim.AddSink("UNF").Finalize();
    sim.AddRecipe("fresh_uox", c_uox());
    int id = sim.Run();
    
-   // Ensure that reactor stops requesting fresh fuel as it approaches retirement
+   // Ensure that Reactor stops requesting fresh fuel as it approaches retirement
    int num_assem_recv = 
       static_cast<int>(ceil(static_cast<double>(rxLife) / static_cast<double>(cycleTime)) 
       + (n_assem_core - n_assem_batch));
@@ -217,7 +217,6 @@ TEST(ReactorXMLTests, Retire) {
    EXPECT_EQ(num_assem_recv, qr.rows.size()) << "Failed to stop ordering near retirement.";
 
    // reactor should discharge all fuel before/by retirement  
-   // Due to discrete material handling, assemblies in == assemblies out, 
    // (i.e., sell transactions == buy transactions)
    conds.clear();
    conds.push_back(Cond("SenderId", "==", id));
@@ -225,7 +224,7 @@ TEST(ReactorXMLTests, Retire) {
    EXPECT_EQ(num_assem_recv, qr.rows.size()) 
       << "Failed to discharge all material by retirement time";
 
-  // Check that the reactor records the power entry on the time step it retires if operating
+  // Check that the Reactor records the power entry on the time step it retires if operating
    int time_online = rxLife / (cycleTime + refuelTime) * cycleTime 
                        + std::min(rxLife % (cycleTime + refuelTime), cycleTime);
    conds.clear();
@@ -264,7 +263,7 @@ TEST(ReactorXMLTests, NonhomogeneousBatch) {
             << "  <n_assem_batch>" << n_assem_batch << "</n_assem_batch>  "
             << "  <power_cap>50</power_cap>  ";
 
-   cyclus::MockSim sim(cyclus::AgentSpec(":cyborg:reactor"), simInput.str(), simDur, rxLife);
+   cyclus::MockSim sim(cyclus::AgentSpec(":cyborg:Reactor"), simInput.str(), simDur, rxLife);
    sim.AddSource("LEU_lo").recipe("fresh_uox_34").capacity(assemSize).Finalize();
    sim.AddSource("LEU_hi").recipe("fresh_uox_40").capacity(assemSize).Finalize();
    sim.AddSink("UNF").Finalize();
@@ -340,8 +339,8 @@ TEST(ReactorXMLTests, NonhomogeneousBatch) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // Do Not Touch! Below section required for connection with Cyclus
-cyclus::Agent* reactorConstructor(cyclus::Context* ctx) {
-  return new cyborg::reactor(ctx);
+cyclus::Agent* ReactorConstructor(cyclus::Context* ctx) {
+  return new cyborg::Reactor(ctx);
 }
 // Required to get functionality in cyclus agent unit tests library
 #ifndef CYCLUS_AGENT_TESTS_CONNECTED
@@ -349,8 +348,8 @@ int ConnectAgentTests();
 static int cyclus_agent_tests_connected = ConnectAgentTests();
 #define CYCLUS_AGENT_TESTS_CONNECTED cyclus_agent_tests_connected
 #endif  // CYCLUS_AGENT_TESTS_CONNECTED
-INSTANTIATE_TEST_CASE_P(reactor, FacilityTests,
-                        ::testing::Values(&reactorConstructor));
-INSTANTIATE_TEST_CASE_P(reactor, AgentTests,
-                        ::testing::Values(&reactorConstructor));
+INSTANTIATE_TEST_CASE_P(Reactor, FacilityTests,
+                        ::testing::Values(&ReactorConstructor));
+INSTANTIATE_TEST_CASE_P(Reactor, AgentTests,
+                        ::testing::Values(&ReactorConstructor));
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

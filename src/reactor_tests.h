@@ -13,7 +13,7 @@ namespace ReactorTests {
 class ReactorTest : public ::testing::Test {
  protected:
   cyclus::TestContext tc_;
-  cyborg::reactor* src_facility_;
+  cyborg::Reactor* src_facility_;
 
   virtual void SetUp();
   virtual void TearDown();
@@ -24,7 +24,7 @@ class ReactorTest : public ::testing::Test {
   void set_cycle_step(const int);
   void set_discharged(const bool);
   int get_cycle_time();
-  void TestInitState(cyborg::reactor* fac);
+  void TestInitState(cyborg::Reactor* fac);
 
   std::vector<std::string> in_r1, in_c1;
   std::string out_c1;

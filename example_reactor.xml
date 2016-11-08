@@ -24,7 +24,7 @@
   </facility>
 
   <facility>
-    <name>Reactor</name>
+    <name>reactor</name>
     <config>
       <reactor>
         <fresh_fuel>UO2</fresh_fuel>
@@ -54,7 +54,7 @@
       <name>OneInst</name>
       <initialfacilitylist>
         <entry>
-          <prototype>Reactor</prototype>
+          <prototype>reactor</prototype>
           <number>1</number>
         </entry>
         <entry>
