@@ -38,7 +38,6 @@ void ReactorTest::InitParameters(){
   power_cap = 800.0; // MWt
   cycle_time = 12; // months
   refuel_time = 1; // months
-  reactor_lifetime = 480;
   enrichment = 4.0;
   //mod_density = 0.0; // Setting to 0 to test auto-interpolation of density
   n_assem_core = 75;
@@ -61,7 +60,6 @@ void ReactorTest::SetUpReactor(){
   src_facility_->power_cap = power_cap;
   src_facility_->cycle_time = cycle_time;
   src_facility_->refuel_time = refuel_time;
-  src_facility_->reactor_lifetime = reactor_lifetime;
   src_facility_->assem_size = assem_mass;
   src_facility_->core.capacity(assem_mass*n_assem_core);
   src_facility_->spent.capacity(3.0*assem_mass*n_assem_core);
@@ -93,7 +91,6 @@ void ReactorTest::TestInitState(cyborg::Reactor* fac){
   EXPECT_EQ(out_c1, fac->spent_fuel) << "Reactor spent fuel commodity not set correctly!\n";
   EXPECT_EQ(power_cap, fac->power_cap) << "Reactor capacity not set correctly!\n";
   EXPECT_EQ(cycle_time, fac->cycle_time) << "Facility lifetime not set correctly!\n";
-  EXPECT_EQ(reactor_lifetime, fac->reactor_lifetime) << "Reactor lifetime not set correctly!\n";
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

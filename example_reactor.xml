@@ -35,7 +35,6 @@
         <fuel_capacity>10</fuel_capacity>
         <cycle_length>5</cycle_length>
         <cap_factor>1</cap_factor>
-        <reactor_lifetime>10</reactor_lifetime>
       </reactor>
     </config>
   </facility>

@@ -109,7 +109,6 @@ CyBORG supports the following **numeric** arguments to describe the fuel burnup
    - ``n_assem_spent``: Number of discharged fuel assemblies that can be stored in the reactor (default: 1000000000)
    - ``cycle_time``: Length of a full irradiation cycle (excluding refueling time), in Cyclus time steps
    - ``refuel_time``: Length of a refueling (down) time, in Cyclus time steps
-   - ``reactor_lifetime``: Lifetime of the reactor in the simulation, in Cyclus time steps (default: 400)
 
 In addition, CyBORG takes the following **string** type arguments:
 

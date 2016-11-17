@@ -30,7 +30,7 @@ class ReactorTest : public ::testing::Test {
   std::string out_c1;
   std::string fuel_type;
   double power_cap, core_capacity, enrichment, mod_density;
-  int cycle_time, refuel_time, reactor_lifetime;
+  int cycle_time, refuel_time;
   int n_assem_core, n_assem_spent, n_assem_batch; 
   double assem_mass;
 };

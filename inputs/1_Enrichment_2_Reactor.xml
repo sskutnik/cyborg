@@ -33,6 +33,7 @@
 
   <facility>
     <name>Reactor 1</name>
+    <lifetime>480</lifetime>
     <config>
       <Reactor>
         <power_cap>100.0</power_cap>
@@ -41,7 +42,6 @@
         <fuel_incommods>  <val>enriched_u</val>           </fuel_incommods>
         <cycle_time>12</cycle_time>
         <refuel_time>1</refuel_time>
-        <reactor_lifetime>480</reactor_lifetime>
         <assembly_type>w17x17</assembly_type>
         <fuel_type>UOX</fuel_type>
         <n_assem_core>30</n_assem_core>
@@ -54,6 +54,7 @@
 
   <facility>
     <name>Reactor 2</name>
+    <lifetime>480</lifetime>
       <config>
         <Reactor>
           <power_cap>110.0</power_cap>
@@ -62,7 +63,6 @@
           <fuel_incommods>  <val>enriched_u</val>         </fuel_incommods>
           <cycle_time>12</cycle_time>
           <refuel_time>1</refuel_time>
-          <reactor_lifetime>480</reactor_lifetime>
           <assembly_type>w17x17</assembly_type>
           <fuel_type>UOX</fuel_type>
           <n_assem_core>30</n_assem_core>

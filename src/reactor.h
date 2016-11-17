@@ -243,13 +243,6 @@ class Reactor : public cyclus::Facility,
      "uilabel": "Time Since Start of Last Cycle", \
      "units": "time steps"}
   int cycle_step;
-
-  #pragma cyclus var {'default': 480,\
-                      "tooltip":"Reactor lifetime",\
-                      "doc":"Reactor lifetime",\
-                      "uilabel":"Reactor Lifetime",\
-                      "units":"time steps"}
-  int reactor_lifetime; 
  
   /// fuel_type is used to determine which fuel recipe parameters 
   /// to extract for Reactor data library interpolation.
