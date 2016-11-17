@@ -236,6 +236,67 @@ TEST(ReactorXMLTests, Retire) {
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// Test for proper fuel discharge from cyborg::Reactor.
+// Based on cycamore::Reactor test with minor modifications
+TEST(ReactorXMLTests, DISABLED_FuelDischarge) {
+
+   int simDur = 50;
+   int rxLife = 36;
+   int n_assem_core = 3;
+   int n_assem_batch = 1;
+   int cycleTime = 7;
+   int refuelTime = 0;
+   double assemSize = 300; // kg
+
+   std::stringstream simInput;
+   simInput << "  <fuel_recipes> <val>fresh_uox</val> </fuel_recipes>  "
+            << "  <fuel_incommods> <val>LEU</val> </fuel_incommods>   "
+            << "  <spent_fuel>UNF</spent_fuel>  "
+            << "  <fuel_type>UOX</fuel_type> "
+            << "  <cycle_time>" << cycleTime << "</cycle_time>  "
+            << "  <refuel_time>" << refuelTime << "</refuel_time>  "
+            << "  <assem_size>" << assemSize << "</assem_size>  "
+            << "  <n_assem_fresh>" << n_assem_batch << "</n_assem_fresh>  "
+            << "  <n_assem_core>" << n_assem_core << "</n_assem_core>  "
+            << "  <n_assem_batch>" << n_assem_batch << "</n_assem_batch>  "
+            << "  <power_cap>30</power_cap>  ";
+ 
+   cyclus::MockSim sim(cyclus::AgentSpec(":cyborg:Reactor"), simInput.str(), simDur, rxLife);
+   sim.AddSource("LEU").Finalize();
+   sim.AddSink("UNF").Finalize();
+   sim.AddRecipe("fresh_uox", c_uox());
+   int id = sim.Run();
+   
+   // Ensure that Reactor stops requesting fresh fuel as it approaches retirement
+   int num_assem_recv = 
+      static_cast<int>(ceil(static_cast<double>(rxLife) / static_cast<double>(cycleTime)) 
+      + (n_assem_core - n_assem_batch));
+
+   std::vector<Cond> conds;
+   conds.push_back(Cond("ReceiverId", "==", id));
+   QueryResult qr = sim.db().Query("Transactions", &conds);
+   EXPECT_EQ(num_assem_recv, qr.rows.size()) << "Failed to stop ordering near retirement.";
+
+   // reactor should discharge all fuel before/by retirement  
+   // (i.e., sell transactions == buy transactions)
+   conds.clear();
+   conds.push_back(Cond("SenderId", "==", id));
+   qr = sim.db().Query("Transactions", &conds);
+   EXPECT_EQ(num_assem_recv, qr.rows.size()) 
+      << "Failed to discharge all material by retirement time";
+
+  // Check that the Reactor records the power entry on the time step it retires if operating
+   int time_online = rxLife / (cycleTime + refuelTime) * cycleTime 
+                       + std::min(rxLife % (cycleTime + refuelTime), cycleTime);
+   conds.clear();
+   conds.push_back(Cond("AgentId", "==", id));
+   conds.push_back(Cond("Value", ">", 0));
+   qr = sim.db().Query("TimeSeriesPower", &conds);
+   EXPECT_EQ(time_online, qr.rows.size())
+       << "failed to generate power for the correct number of time steps";
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // Test for two-recipe (UOX only, 2 enrichments) core.
 // Output commodities & recipes should reflect a similar ratio. 
 // TODO: Eventually add in handling of UOX & MOX inputs separately?
