@@ -172,7 +172,7 @@ void Reactor::Tick() {
      Transmute_();
      Record("CYCLE_END", "");
    }
-   if(cycle_step >= cycle_time && !discharged) {
+   if((cycle_step >= cycle_time) && !discharged) {
      discharged = Discharge_();
    }
    if(discharged) { 
@@ -191,7 +191,9 @@ void Reactor::Tock() {
   }
 
   if (cycle_step >= cycle_time + refuel_time || cycle_step == 0) {   
-    if( core.count() == n_assem_core) {
+    // Make sure we actually discharged all of the burnt fuel; i.e., the core is 
+    // "full" even when we fail to discharge (due to lack of space)
+    if( discharged && core.count() == n_assem_core) {
       // Restart once the core is fully reloaded
       discharged = false;
       cycle_step = 0;
@@ -231,7 +233,7 @@ void Reactor::Load_() {
 bool Reactor::Discharge_() { return Discharge_(this->n_assem_batch); }
 
 bool Reactor::Discharge_(int n_assem_discharged) {
-
+  
   int npop = std::min(n_assem_discharged, core.count());
   if (n_assem_spent - spent.count() < npop) {
     Record("DISCHARGE", "failed");
@@ -241,9 +243,19 @@ bool Reactor::Discharge_(int n_assem_discharged) {
   std::stringstream ss;
   ss << npop << " assemblies";
   Record("DISCHARGE", ss.str());
-      
+  //std::cerr << "DISCHARGE: " << ss.str() << std::endl;
+ 
   // Discharge fuel to spent fuel buffer
   spent.Push(core.PopN(npop));
+
+/*
+  for(size_t i=0; i < core.count(); ++i) {
+    auto mat = core.Pop();
+    std::cerr << "POST-DISCHARGE: core->mat->id() = " << mat->qual_id() << std::endl;
+    core.Push(mat);
+  } 
+*/
+  //std::cerr << "SPENT COUNT: " << spent.count() << std::endl;
 
   return true;
 }
@@ -261,8 +273,16 @@ void Reactor::Transmute_(int n_assem, int n_cycles, double last_cycle) {
 
   //bool isHomogenous = (std::adjacent_find( matIDs.begin(), matIDs.end(), std::not_equal_to<int>() ) == matIDs.end());
   //spentFuelComp = this->Deplete_(old[0],n_assem_batch, n_cycles, last_cycle);
-  
+ /*
+  for(size_t i=0; i < core.count(); ++i) {
+    auto mat = core.Pop();
+    std::cerr << "PRE-TRANSMUTE: core->mat->id() = " << mat->qual_id() << std::endl;
+    core.Push(mat);
+  }
+*/
+
   MatVec old = core.PopN(std::min(n_assem, core.count()));
+
 
   // Check to see if assemblies have different compositions, 
   // (as indicated by their material ID). If so, deplete separately.
@@ -282,15 +302,21 @@ void Reactor::Transmute_(int n_assem, int n_cycles, double last_cycle) {
      index = std::distance(matIDs.begin(), idx);
      if(idx == matIDs.end()) {
        // Reached the end of the IDs array; use the last entry
-       index = matIDs.size() - 1; 
+       index = matIDs.size() - 1;
+       //std::cerr << "idx == matIDs.end(); mat = " << (*idx) << "  idx-idx_old = " 
+       //          << idx-idx_old << "  idx_old = " << idx_old-matIDs.begin() << std::endl; 
      }
      else if(idx == idx_old) {
        // Unique element in difference seqeuence; i.e., 1-2-3. Need to kick iterator along to continue
        idx++;
+       //std::cerr << "idx == idx_old! *idx = " << (*idx) << "  *idx_old = " << (*idx_old) << std::endl;
      }
+     // This always goes bad when n_subbatch = big but index is the last one...
+     // Seems to be when all of the matIDs are identical - why are they identical?
      n_subbatch = idx - idx_old;
 
-     //std::cerr << "index = " << index << "  matIDs.size() = " << matIDs.size() << "  idx == idx_old? " << (idx == idx_old) << std::endl;
+     //std::cerr << "index = " << index << " n_subbatch = " << n_subbatch << "  matIDs.size() = " << matIDs.size() << std::endl;
+     //          << "  idx == idx_old? " << (idx == idx_old) << std::endl;
      spentFuelComp = this->Deplete_(old[index], n_subbatch, n_cycles, last_cycle);     
      //std::cerr << "Finished deplete. old[" << index << "]->comp()->id() = " << old[index]->comp()->id() << "  matIDs[index] = " << matIDs[index] << std::endl;
      if(!spentFuelComp) {
@@ -310,8 +336,14 @@ void Reactor::Transmute_(int n_assem, int n_cycles, double last_cycle) {
     // rotate untransmuted mats back to back of buffer
     core.Push(core.PopN(core.count() - old.size()));
   }
-   
 
+/*
+  for(size_t i=0; i < core.count(); ++i) {
+    auto mat = core.Pop();
+    std::cerr << "POST-TRANSMUTE: core->mat->id() = " << mat->qual_id() << std::endl;
+    core.Push(mat);
+  } 
+*/
   std::stringstream ss;
   ss << old.size() << " assemblies" << " to discharge burnup " << this->burnup << " MWd/MTHM";
   Record("TRANSMUTE", ss.str());
@@ -399,7 +431,13 @@ cyclus::Composition::Ptr Reactor::Deplete_(cyclus::Material::Ptr mat, const int 
 
 void Reactor::setup_origen_interp_params(OrigenInterface::cyclus2origen& react, const cyclus::Material::Ptr mat) {
     // Set Interpolable parameters   
+    //std::cerr << "Input composition size: " << mat->comp()->atom().size() << std::endl;
+/*    for(auto iso : mat->comp()->atom()) {
+       std::cerr << iso.first << "->" << iso.second << std::endl;
+    }
+*/
     if(boost::to_upper_copy(this->fuel_type) == "UOX") {
+       //std::cerr << "setup_origen_interp_params: mat->comp() = " << mat->comp() << std::endl;
        double enrich = get_iso_mass_frac(92, 235, mat->comp()) * 100.0;
        if(enrich <= 0.0 || enrich > 100.0) {         
           std::stringstream ss;
@@ -597,6 +635,12 @@ std::set<cyclus::RequestPortfolio<cyclus::Material>::Ptr> Reactor::GetMatlReques
       std::string commod = fuel_incommods[j];
       double pref = fuel_prefs[j];
       cyclus::Composition::Ptr recipe = context()->GetRecipe(fuel_recipes[j]);
+/*      
+      std::cerr << "Requesting recipe: " << std::endl;
+      for(auto comp : recipe->atom()) {
+         std::cerr << comp.first << "->" << comp.second << std::endl;
+      }
+*/
       m = cyclus::Material::CreateUntracked(assem_size, recipe);
       Request<cyclus::Material>* r = port->AddRequest(m, this, commod, pref, true);
       mreqs.push_back(r);
