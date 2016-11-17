@@ -390,10 +390,7 @@ cyclus::Composition::Ptr Reactor::Deplete_(cyclus::Material::Ptr mat, const int 
     // Update recipe based on discharge compositions from ORIGEN
     cyclus::CompMap dischargeRecipe = this->get_origen_discharge_recipe(react);
     comp_out = cyclus::Composition::CreateFromAtom(dischargeRecipe);    
-    // TODO: Need to check this recipe here...
-    for(auto & atom : dischargeRecipe) {
-       //if(atom.second > 1E-10) std::cerr << atom.first << " --> " << atom.second << std::endl;
-    }
+
     if(!comp_out) {
        std::stringstream ss;
        ss << "Error in Deplete_(); could not create discharge fuel recipe!\n";
@@ -514,12 +511,12 @@ cyclus::CompMap Reactor::get_origen_discharge_recipe(OrigenInterface::cyclus2ori
     std::vector<int> org_id;
     react.get_ids_zzzaaai(org_id);
     
-    // This is still not converting back to Pyne ZZZAAAIIII format - why? 
-    std::for_each(org_id.begin(), org_id.end(), [](int &nucID){ pyne::nucname::id(nucID); });
+    
+    for(auto & atom : org_id) { atom = pyne::nucname::zzaaam_to_id(atom); }
    
     // Get mass data from ORIGEN
     std::vector<double> org_atom;
-    react.get_masses_final(org_atom,"GRAMS");
+    react.get_masses_final(org_atom,"GATOMS");
 
     // Normalize to atom fractions
     double atomNorm = std::accumulate(org_atom.begin(),org_atom.end(), 0.0);    
