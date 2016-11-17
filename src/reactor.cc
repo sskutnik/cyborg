@@ -248,15 +248,6 @@ bool Reactor::Discharge_(int n_assem_discharged) {
   // Discharge fuel to spent fuel buffer
   spent.Push(core.PopN(npop));
 
-/*
-  for(size_t i=0; i < core.count(); ++i) {
-    auto mat = core.Pop();
-    std::cerr << "POST-DISCHARGE: core->mat->id() = " << mat->qual_id() << std::endl;
-    core.Push(mat);
-  } 
-*/
-  //std::cerr << "SPENT COUNT: " << spent.count() << std::endl;
-
   return true;
 }
 
@@ -272,7 +263,6 @@ void Reactor::Transmute_(int n_assem, int n_cycles, double last_cycle) {
   // Check that all assemblies in the batch have the same composition
 
   //bool isHomogenous = (std::adjacent_find( matIDs.begin(), matIDs.end(), std::not_equal_to<int>() ) == matIDs.end());
-  //spentFuelComp = this->Deplete_(old[0],n_assem_batch, n_cycles, last_cycle);
  /*
   for(size_t i=0; i < core.count(); ++i) {
     auto mat = core.Pop();
@@ -288,8 +278,7 @@ void Reactor::Transmute_(int n_assem, int n_cycles, double last_cycle) {
   // (as indicated by their material ID). If so, deplete separately.
   std::vector<int> matIDs; 
   for(auto & mat : old) matIDs.push_back(mat->comp()->id());  
-  //auto idx = matIDs.begin();
-  //auto idx_old = idx;
+
   std::vector<int>::iterator idx = matIDs.begin();
   std::vector<int>::iterator idx_old = idx;
   
@@ -303,22 +292,14 @@ void Reactor::Transmute_(int n_assem, int n_cycles, double last_cycle) {
      if(idx == matIDs.end()) {
        // Reached the end of the IDs array; use the last entry
        index = matIDs.size() - 1;
-       //std::cerr << "idx == matIDs.end(); mat = " << (*idx) << "  idx-idx_old = " 
-       //          << idx-idx_old << "  idx_old = " << idx_old-matIDs.begin() << std::endl; 
      }
      else if(idx == idx_old) {
        // Unique element in difference seqeuence; i.e., 1-2-3. Need to kick iterator along to continue
        idx++;
-       //std::cerr << "idx == idx_old! *idx = " << (*idx) << "  *idx_old = " << (*idx_old) << std::endl;
      }
-     // This always goes bad when n_subbatch = big but index is the last one...
-     // Seems to be when all of the matIDs are identical - why are they identical?
      n_subbatch = idx - idx_old;
 
-     //std::cerr << "index = " << index << " n_subbatch = " << n_subbatch << "  matIDs.size() = " << matIDs.size() << std::endl;
-     //          << "  idx == idx_old? " << (idx == idx_old) << std::endl;
      spentFuelComp = this->Deplete_(old[index], n_subbatch, n_cycles, last_cycle);     
-     //std::cerr << "Finished deplete. old[" << index << "]->comp()->id() = " << old[index]->comp()->id() << "  matIDs[index] = " << matIDs[index] << std::endl;
      if(!spentFuelComp) {
         throw cyclus::StateError("Spent fuel composition is not set!");
      } 
@@ -337,13 +318,6 @@ void Reactor::Transmute_(int n_assem, int n_cycles, double last_cycle) {
     core.Push(core.PopN(core.count() - old.size()));
   }
 
-/*
-  for(size_t i=0; i < core.count(); ++i) {
-    auto mat = core.Pop();
-    std::cerr << "POST-TRANSMUTE: core->mat->id() = " << mat->qual_id() << std::endl;
-    core.Push(mat);
-  } 
-*/
   std::stringstream ss;
   ss << old.size() << " assemblies" << " to discharge burnup " << this->burnup << " MWd/MTHM";
   Record("TRANSMUTE", ss.str());
@@ -412,11 +386,14 @@ cyclus::Composition::Ptr Reactor::Deplete_(cyclus::Material::Ptr mat, const int 
     react.solve();
 
     this->burnup = react.burnup_last();  // Burnup in units of MWd/MTHM
-    //std::cerr << "Deplete_(): burnup = " << burnup << "  depletion_state=\n" << depletion_state << std::endl;
 
     // Update recipe based on discharge compositions from ORIGEN
     cyclus::CompMap dischargeRecipe = this->get_origen_discharge_recipe(react);
     comp_out = cyclus::Composition::CreateFromAtom(dischargeRecipe);    
+    // TODO: Need to check this recipe here...
+    for(auto & atom : dischargeRecipe) {
+       //if(atom.second > 1E-10) std::cerr << atom.first << " --> " << atom.second << std::endl;
+    }
     if(!comp_out) {
        std::stringstream ss;
        ss << "Error in Deplete_(); could not create discharge fuel recipe!\n";
@@ -489,6 +466,7 @@ void Reactor::setup_origen_power_history(OrigenInterface::cyclus2origen& react, 
 
        // Convert power to MWt 
        double cyclePower = power_cap * core_power_frac[i] * 1E6;
+       //std::cerr << "Pushing back power: " << cyclePower << std::endl;
        dp_pow.push_back(cyclePower);
        
        // Decay fuel during reload
@@ -524,8 +502,9 @@ void Reactor::setup_origen_materials(OrigenInterface::cyclus2origen& react, cons
     // Convert each isotopic mass to absolute isotopic mass in kg (from unnormalized mass fraction)
     double massNorm = std::accumulate(mass_fraction.begin(),mass_fraction.end(), 0.0);    
     std::transform(mass_fraction.begin(), mass_fraction.end(), norm_mass.begin(), 
-                   std::bind1st(std::multiplies<double>(),mat->quantity()/massNorm * n_assem));
+                   std::bind1st(std::multiplies<double>(),mat->quantity()/massNorm * n_assem * assem_size));
     //for(auto mass : norm_mass) { std::cerr << "Normed mass: " << mass/(mat->quantity()) <<  std::endl; }
+    react.set_mat_units("KILOGRAMS");
     react.set_materials(in_ids,norm_mass);
 }
 
@@ -534,18 +513,19 @@ cyclus::CompMap Reactor::get_origen_discharge_recipe(OrigenInterface::cyclus2ori
 
     std::vector<int> org_id;
     react.get_ids_zzzaaai(org_id);
-     
+    
+    // This is still not converting back to Pyne ZZZAAAIIII format - why? 
     std::for_each(org_id.begin(), org_id.end(), [](int &nucID){ pyne::nucname::id(nucID); });
    
     // Get mass data from ORIGEN
     std::vector<double> org_atom;
-    react.get_masses_final(org_atom,"GATOMS");
+    react.get_masses_final(org_atom,"GRAMS");
 
     // Normalize to atom fractions
     double atomNorm = std::accumulate(org_atom.begin(),org_atom.end(), 0.0);    
     std::transform(org_atom.begin(), org_atom.end(), org_atom.begin(), 
                    std::bind1st(std::multiplies<double>(),1.0/atomNorm));
-    
+
     cyclus::CompMap v;
     for(int j=0; j!=org_id.size(); ++j){       
        if(org_atom[j] > 0.) { 
@@ -635,12 +615,7 @@ std::set<cyclus::RequestPortfolio<cyclus::Material>::Ptr> Reactor::GetMatlReques
       std::string commod = fuel_incommods[j];
       double pref = fuel_prefs[j];
       cyclus::Composition::Ptr recipe = context()->GetRecipe(fuel_recipes[j]);
-/*      
-      std::cerr << "Requesting recipe: " << std::endl;
-      for(auto comp : recipe->atom()) {
-         std::cerr << comp.first << "->" << comp.second << std::endl;
-      }
-*/
+
       m = cyclus::Material::CreateUntracked(assem_size, recipe);
       Request<cyclus::Material>* r = port->AddRequest(m, this, commod, pref, true);
       mreqs.push_back(r);
