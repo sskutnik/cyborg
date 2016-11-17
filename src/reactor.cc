@@ -172,7 +172,7 @@ void Reactor::Tick() {
      Transmute_();
      Record("CYCLE_END", "");
    }
-   if(cycle_step >= cycle_time && !discharged) {
+   if((cycle_step >= cycle_time) && !discharged) {
      discharged = Discharge_();
    }
    if(discharged) { 
@@ -191,7 +191,9 @@ void Reactor::Tock() {
   }
 
   if (cycle_step >= cycle_time + refuel_time || cycle_step == 0) {   
-    if( core.count() == n_assem_core) {
+    // Make sure we actually discharged all of the burnt fuel; i.e., the core is 
+    // "full" even when we fail to discharge (due to lack of space)
+    if( discharged && core.count() == n_assem_core) {
       // Restart once the core is fully reloaded
       discharged = false;
       cycle_step = 0;
@@ -231,7 +233,7 @@ void Reactor::Load_() {
 bool Reactor::Discharge_() { return Discharge_(this->n_assem_batch); }
 
 bool Reactor::Discharge_(int n_assem_discharged) {
-
+  
   int npop = std::min(n_assem_discharged, core.count());
   if (n_assem_spent - spent.count() < npop) {
     Record("DISCHARGE", "failed");
@@ -241,7 +243,8 @@ bool Reactor::Discharge_(int n_assem_discharged) {
   std::stringstream ss;
   ss << npop << " assemblies";
   Record("DISCHARGE", ss.str());
-      
+  //std::cerr << "DISCHARGE: " << ss.str() << std::endl;
+ 
   // Discharge fuel to spent fuel buffer
   spent.Push(core.PopN(npop));
 
@@ -260,16 +263,22 @@ void Reactor::Transmute_(int n_assem, int n_cycles, double last_cycle) {
   // Check that all assemblies in the batch have the same composition
 
   //bool isHomogenous = (std::adjacent_find( matIDs.begin(), matIDs.end(), std::not_equal_to<int>() ) == matIDs.end());
-  //spentFuelComp = this->Deplete_(old[0],n_assem_batch, n_cycles, last_cycle);
-  
+ /*
+  for(size_t i=0; i < core.count(); ++i) {
+    auto mat = core.Pop();
+    std::cerr << "PRE-TRANSMUTE: core->mat->id() = " << mat->qual_id() << std::endl;
+    core.Push(mat);
+  }
+*/
+
   MatVec old = core.PopN(std::min(n_assem, core.count()));
+
 
   // Check to see if assemblies have different compositions, 
   // (as indicated by their material ID). If so, deplete separately.
   std::vector<int> matIDs; 
   for(auto & mat : old) matIDs.push_back(mat->comp()->id());  
-  //auto idx = matIDs.begin();
-  //auto idx_old = idx;
+
   std::vector<int>::iterator idx = matIDs.begin();
   std::vector<int>::iterator idx_old = idx;
   
@@ -282,7 +291,7 @@ void Reactor::Transmute_(int n_assem, int n_cycles, double last_cycle) {
      index = std::distance(matIDs.begin(), idx);
      if(idx == matIDs.end()) {
        // Reached the end of the IDs array; use the last entry
-       index = matIDs.size() - 1; 
+       index = matIDs.size() - 1;
      }
      else if(idx == idx_old) {
        // Unique element in difference seqeuence; i.e., 1-2-3. Need to kick iterator along to continue
@@ -290,9 +299,7 @@ void Reactor::Transmute_(int n_assem, int n_cycles, double last_cycle) {
      }
      n_subbatch = idx - idx_old;
 
-     //std::cerr << "index = " << index << "  matIDs.size() = " << matIDs.size() << "  idx == idx_old? " << (idx == idx_old) << std::endl;
      spentFuelComp = this->Deplete_(old[index], n_subbatch, n_cycles, last_cycle);     
-     //std::cerr << "Finished deplete. old[" << index << "]->comp()->id() = " << old[index]->comp()->id() << "  matIDs[index] = " << matIDs[index] << std::endl;
      if(!spentFuelComp) {
         throw cyclus::StateError("Spent fuel composition is not set!");
      } 
@@ -310,7 +317,6 @@ void Reactor::Transmute_(int n_assem, int n_cycles, double last_cycle) {
     // rotate untransmuted mats back to back of buffer
     core.Push(core.PopN(core.count() - old.size()));
   }
-   
 
   std::stringstream ss;
   ss << old.size() << " assemblies" << " to discharge burnup " << this->burnup << " MWd/MTHM";
@@ -380,11 +386,11 @@ cyclus::Composition::Ptr Reactor::Deplete_(cyclus::Material::Ptr mat, const int 
     react.solve();
 
     this->burnup = react.burnup_last();  // Burnup in units of MWd/MTHM
-    //std::cerr << "Deplete_(): burnup = " << burnup << "  depletion_state=\n" << depletion_state << std::endl;
 
     // Update recipe based on discharge compositions from ORIGEN
     cyclus::CompMap dischargeRecipe = this->get_origen_discharge_recipe(react);
     comp_out = cyclus::Composition::CreateFromAtom(dischargeRecipe);    
+
     if(!comp_out) {
        std::stringstream ss;
        ss << "Error in Deplete_(); could not create discharge fuel recipe!\n";
@@ -399,7 +405,13 @@ cyclus::Composition::Ptr Reactor::Deplete_(cyclus::Material::Ptr mat, const int 
 
 void Reactor::setup_origen_interp_params(OrigenInterface::cyclus2origen& react, const cyclus::Material::Ptr mat) {
     // Set Interpolable parameters   
+    //std::cerr << "Input composition size: " << mat->comp()->atom().size() << std::endl;
+/*    for(auto iso : mat->comp()->atom()) {
+       std::cerr << iso.first << "->" << iso.second << std::endl;
+    }
+*/
     if(boost::to_upper_copy(this->fuel_type) == "UOX") {
+       //std::cerr << "setup_origen_interp_params: mat->comp() = " << mat->comp() << std::endl;
        double enrich = get_iso_mass_frac(92, 235, mat->comp()) * 100.0;
        if(enrich <= 0.0 || enrich > 100.0) {         
           std::stringstream ss;
@@ -451,6 +463,7 @@ void Reactor::setup_origen_power_history(OrigenInterface::cyclus2origen& react, 
 
        // Convert power to MWt 
        double cyclePower = power_cap * core_power_frac[i] * 1E6;
+       //std::cerr << "Pushing back power: " << cyclePower << std::endl;
        dp_pow.push_back(cyclePower);
        
        // Decay fuel during reload
@@ -486,8 +499,9 @@ void Reactor::setup_origen_materials(OrigenInterface::cyclus2origen& react, cons
     // Convert each isotopic mass to absolute isotopic mass in kg (from unnormalized mass fraction)
     double massNorm = std::accumulate(mass_fraction.begin(),mass_fraction.end(), 0.0);    
     std::transform(mass_fraction.begin(), mass_fraction.end(), norm_mass.begin(), 
-                   std::bind1st(std::multiplies<double>(),mat->quantity()/massNorm * n_assem));
+                   std::bind1st(std::multiplies<double>(),mat->quantity()/massNorm * n_assem * assem_size));
     //for(auto mass : norm_mass) { std::cerr << "Normed mass: " << mass/(mat->quantity()) <<  std::endl; }
+    react.set_mat_units("KILOGRAMS");
     react.set_materials(in_ids,norm_mass);
 }
 
@@ -496,8 +510,9 @@ cyclus::CompMap Reactor::get_origen_discharge_recipe(OrigenInterface::cyclus2ori
 
     std::vector<int> org_id;
     react.get_ids_zzzaaai(org_id);
-     
-    std::for_each(org_id.begin(), org_id.end(), [](int &nucID){ pyne::nucname::id(nucID); });
+    
+    
+    for(auto & atom : org_id) { atom = pyne::nucname::zzaaam_to_id(atom); }
    
     // Get mass data from ORIGEN
     std::vector<double> org_atom;
@@ -507,7 +522,7 @@ cyclus::CompMap Reactor::get_origen_discharge_recipe(OrigenInterface::cyclus2ori
     double atomNorm = std::accumulate(org_atom.begin(),org_atom.end(), 0.0);    
     std::transform(org_atom.begin(), org_atom.end(), org_atom.begin(), 
                    std::bind1st(std::multiplies<double>(),1.0/atomNorm));
-    
+
     cyclus::CompMap v;
     for(int j=0; j!=org_id.size(); ++j){       
        if(org_atom[j] > 0.) { 
@@ -597,6 +612,7 @@ std::set<cyclus::RequestPortfolio<cyclus::Material>::Ptr> Reactor::GetMatlReques
       std::string commod = fuel_incommods[j];
       double pref = fuel_prefs[j];
       cyclus::Composition::Ptr recipe = context()->GetRecipe(fuel_recipes[j]);
+
       m = cyclus::Material::CreateUntracked(assem_size, recipe);
       Request<cyclus::Material>* r = port->AddRequest(m, this, commod, pref, true);
       mreqs.push_back(r);

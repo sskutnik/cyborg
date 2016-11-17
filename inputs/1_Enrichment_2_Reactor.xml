@@ -10,8 +10,9 @@
 
   <archetypes>
     <spec> <lib>cycamore</lib> <name>Enrichment</name> </spec>
-    <!--    <spec> <lib>cycamore</lib> <name>Storage</name> </spec>  -->
-    <spec> <lib>cycamore</lib> <name>Reactor</name> </spec>
+    <spec> <lib>cycamore</lib> <name>Storage</name> </spec>
+    <spec> <lib>cyborg</lib> <name>Reactor</name> </spec>
+    <spec> <lib>cycamore</lib> <name>Sink</name> </spec>
     <spec> <lib>agents</lib>   <name>NullRegion</name> </spec>
     <spec> <lib>agents</lib>   <name>NullInst</name> </spec>
   </archetypes>
@@ -31,58 +32,34 @@
   </facility>
 
   <facility>
-    <name>reactor</name>
+    <name>Reactor 1</name>
     <config>
       <Reactor>
-        <fuel_inrecipes>    <val>lwr_fuel_recipe</val>      </fuel_inrecipes>
-        <fuel_outrecipes>   <val>hot_UNF</val>            </fuel_outrecipes>
+        <power_cap>100.0</power_cap>
+        <assem_size>32.5</assem_size>
+        <fuel_recipes>    <val>lwr_fuel_recipe</val>      </fuel_recipes>
         <fuel_incommods>  <val>enriched_u</val>           </fuel_incommods>
-        <fuel_outcommods>   <val>hot_UNF</val>            </fuel_outcommods>
-        <!-- fuel_prefs>      <val>1.0</val>                  </fuel_prefs -->
-
         <cycle_time>12</cycle_time>
         <refuel_time>1</refuel_time>
-        <assem_size>32.5</assem_size>
+        <reactor_lifetime>480</reactor_lifetime>
+        <assembly_type>w17x17</assembly_type>
+        <fuel_type>UOX</fuel_type>
         <n_assem_core>30</n_assem_core>
         <n_assem_batch>10</n_assem_batch>
-        <power_cap>100.0</power_cap>
         <n_assem_spent>100</n_assem_spent>
-        <!-- reactor_lifetime>13</reactor_lifetime -->
-        <!-- assembly_type>w17x17</assembly_type -->
-        <!-- fuel_type>UOX</fuel_type -->
-        <!-- spent_fuel>hot_UNF</spent_fuel -->
+        <spent_fuel>hot_UNF</spent_fuel>
       </Reactor>
     </config>
   </facility>
-  <!--
+
   <facility>
-    <name>reactor1</name>
+    <name>Reactor 2</name>
       <config>
         <Reactor>
           <power_cap>110.0</power_cap>
           <assem_size>32.5</assem_size>
           <fuel_recipes>    <val>lwr_fuel_recipe2</val>   </fuel_recipes>
           <fuel_incommods>  <val>enriched_u</val>         </fuel_incommods>
-          <cycle_time>12</cycle_time>
-          <refuel_time>1</refuel_time>
-          <reactor_lifetime>13</reactor_lifetime>
-          <assembly_type>w17x17</assembly_type>
-          <fuel_type>UOX</fuel_type>
-          <n_assem_core>30</n_assem_core>
-          <n_assem_batch>10</n_assem_batch>
-          <spent_fuel>hot_UNF</spent_fuel>
-        </Reactor>
-      </config>
-    </facility>
-
-  <facility>
-      <name>Reactor2</name>
-      <config>
-        <Reactor>
-          <power_cap>110.0</power_cap>
-          <assem_size>32.5</assem_size>
-          <fuel_recipes>    <val>lwr_fuel_recipe</val>      </fuel_recipes>
-          <fuel_incommods>  <val>enriched_u</val>           </fuel_incommods>
           <cycle_time>12</cycle_time>
           <refuel_time>1</refuel_time>
           <reactor_lifetime>480</reactor_lifetime>
@@ -93,21 +70,33 @@
           <spent_fuel>hot_UNF</spent_fuel>
         </Reactor>
       </config>
-  </facility>
-  <facility>
-    <name>ISFSI</name>
-    <config>
-      <Storage>
-        <in_commods> <val>hot_UNF</val> </in_commods>
-        <in_commod_prefs> <val>3</val> </in_commod_prefs>
-        <out_commods> <val>UNF_cans</val> </out_commods>
-        <max_inv_size>100</max_inv_size>
-      </Storage>
-    </config>
-  </facility>
-  -->
+    </facility>
 
- <region>
+    <facility>
+      <name>ISFSI</name>
+      <config>
+        <Storage>
+          <in_commods> <val>hot_UNF</val> </in_commods>
+          <in_commod_prefs> <val>1</val> </in_commod_prefs>
+          <out_commods> <val>UNF_cans</val> </out_commods>
+          <max_inv_size>6500</max_inv_size>
+          <residence_time>60</residence_time>
+          <throughput>325</throughput>
+        </Storage>
+      </config>
+    </facility>
+
+    <facility>
+      <name>Consent-based repository</name>
+      <config>
+         <Sink>
+           <in_commods> <val>UNF_cans</val> </in_commods>
+           <capacity>325</capacity>
+         </Sink>
+      </config>
+    </facility>
+
+  <region>
     <name>SingleRegion</name>
     <config><NullRegion/></config>
     <institution>
@@ -118,23 +107,24 @@
           <number>1</number>
         </entry>
         <entry>
-          <prototype>reactor</prototype>
+          <prototype>Reactor 1</prototype>
           <number>1</number>
         </entry>
-        <!--
+
         <entry>
-          <prototype>reactor1</prototype>
+          <prototype>Reactor 2</prototype>
           <number>1</number>
         </entry>
-        <entry>
-          <prototype>Reactor2</prototype>
-          <number>1</number>
-        </entry>
+
         <entry>
           <prototype>ISFSI</prototype>
           <number>1</number>
         </entry>
-        -->
+
+        <entry>
+          <prototype>Consent-based repository</prototype>
+          <number>1</number>
+        </entry>
       </initialfacilitylist>
       <config><NullInst/></config>
     </institution>
@@ -153,18 +143,12 @@
     <nuclide> <id>922350000</id> <comp>4.0</comp> </nuclide>
     <nuclide> <id>922380000</id> <comp>96.0</comp> </nuclide>
   </recipe>
-  <recipe>
-    <name>hot_UNF</name>
-    <basis>mass</basis>
-    <nuclide> <id>922350000</id> <comp>0.83</comp> </nuclide>
-    <nuclide> <id>922380000</id> <comp>99.17</comp> </nuclide>
-  </recipe>
-  <!--
+
   <recipe>
     <name>lwr_fuel_recipe2</name>
     <basis>mass</basis>
     <nuclide> <id>922350000</id> <comp>5.0</comp> </nuclide>
     <nuclide> <id>922380000</id> <comp>95.0</comp> </nuclide>
   </recipe>
-  -->
+
 </simulation>
