@@ -12,6 +12,7 @@
     <spec> <lib>cycamore</lib> <name>Enrichment</name> </spec>
     <spec> <lib>cycamore</lib> <name>Storage</name> </spec>
     <spec> <lib>cyborg</lib> <name>Reactor</name> </spec>
+    <spec> <lib>cycamore</lib> <name>Sink</name> </spec>
     <spec> <lib>agents</lib>   <name>NullRegion</name> </spec>
     <spec> <lib>agents</lib>   <name>NullInst</name> </spec>
   </archetypes>
@@ -40,7 +41,7 @@
         <fuel_incommods>  <val>enriched_u</val>           </fuel_incommods>
         <cycle_time>12</cycle_time>
         <refuel_time>1</refuel_time>
-        <reactor_lifetime>13</reactor_lifetime>
+        <reactor_lifetime>480</reactor_lifetime>
         <assembly_type>w17x17</assembly_type>
         <fuel_type>UOX</fuel_type>
         <n_assem_core>30</n_assem_core>
@@ -61,7 +62,7 @@
           <fuel_incommods>  <val>enriched_u</val>         </fuel_incommods>
           <cycle_time>12</cycle_time>
           <refuel_time>1</refuel_time>
-          <reactor_lifetime>13</reactor_lifetime>
+          <reactor_lifetime>480</reactor_lifetime>
           <assembly_type>w17x17</assembly_type>
           <fuel_type>UOX</fuel_type>
           <n_assem_core>30</n_assem_core>
@@ -78,8 +79,20 @@
           <in_commods> <val>hot_UNF</val> </in_commods>
           <in_commod_prefs> <val>1</val> </in_commod_prefs>
           <out_commods> <val>UNF_cans</val> </out_commods>
-          <max_inv_size>100</max_inv_size>
+          <max_inv_size>6500</max_inv_size>
+          <residence_time>60</residence_time>
+          <throughput>325</throughput>
         </Storage>
+      </config>
+    </facility>
+
+    <facility>
+      <name>Consent-based repository</name>
+      <config>
+         <Sink>
+           <in_commods> <val>UNF_cans</val> </in_commods>
+           <capacity>325</capacity>
+         </Sink>
       </config>
     </facility>
 
@@ -108,6 +121,10 @@
           <number>1</number>
         </entry>
 
+        <entry>
+          <prototype>Consent-based repository</prototype>
+          <number>1</number>
+        </entry>
       </initialfacilitylist>
       <config><NullInst/></config>
     </institution>
