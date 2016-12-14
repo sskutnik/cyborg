@@ -2,7 +2,7 @@
 
 <simulation>
   <control>
-    <duration>500</duration>
+    <duration>39</duration>
     <startmonth>1</startmonth>
     <startyear>2000</startyear>
 <!--  <solver><config><coin-or><timeout>100</timeout><verbose>1</verbose></coin-or></config></solver> -->
@@ -33,12 +33,12 @@
 
   <facility>
     <name>Reactor 1</name>
-    <lifetime>480</lifetime>
+    <lifetime>39</lifetime>
     <config>
       <Reactor>
         <power_cap>100.0</power_cap>
         <assem_size>32.5</assem_size>
-        <fuel_recipes>    <val>lwr_fuel_recipe</val>      </fuel_recipes>
+        <fuel_recipes>    <val>lwr_fuel_recipe_40</val>      </fuel_recipes>
         <fuel_incommods>  <val>enriched_u</val>           </fuel_incommods>
         <cycle_time>12</cycle_time>
         <refuel_time>1</refuel_time>
@@ -54,12 +54,12 @@
 
   <facility>
     <name>Reactor 2</name>
-    <lifetime>480</lifetime>
+    <lifetime>39</lifetime>
       <config>
         <Reactor>
           <power_cap>110.0</power_cap>
           <assem_size>32.5</assem_size>
-          <fuel_recipes>    <val>lwr_fuel_recipe2</val>   </fuel_recipes>
+          <fuel_recipes>    <val>lwr_fuel_recipe_50</val>   </fuel_recipes>
           <fuel_incommods>  <val>enriched_u</val>         </fuel_incommods>
           <cycle_time>12</cycle_time>
           <refuel_time>1</refuel_time>
@@ -138,14 +138,14 @@
   </recipe>
 
   <recipe>
-    <name>lwr_fuel_recipe</name>
+    <name>lwr_fuel_recipe_40</name>
     <basis>mass</basis>
     <nuclide> <id>922350000</id> <comp>4.0</comp> </nuclide>
     <nuclide> <id>922380000</id> <comp>96.0</comp> </nuclide>
   </recipe>
 
   <recipe>
-    <name>lwr_fuel_recipe2</name>
+    <name>lwr_fuel_recipe_50</name>
     <basis>mass</basis>
     <nuclide> <id>922350000</id> <comp>5.0</comp> </nuclide>
     <nuclide> <id>922380000</id> <comp>95.0</comp> </nuclide>
