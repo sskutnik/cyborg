@@ -1,7 +1,7 @@
 CyBORG: A physics-based reactor module for Cyclus
 ==============
 
-CyBORG (CYclus-Based ORiGen) is an `Origen-powered <https://scale.ornl.gov>`_ reactor analysis module for the `Cyclus nuclear fuel cycle simulator <https://fuelcycle.org>`_. It uses the Origen 6.2 API and reactor data libraries to perform physics-based reactor depletion calculations from within Cyclus. 
+CyBORG (CYclus-Based ORiGen) is an `Origen-powered <https://scale.ornl.gov>`_ reactor analysis module for the `Cyclus nuclear fuel cycle simulator <https://fuelcycle.org>`_. It uses the `Origen 6.2 API <https://wawiesel.github.io/OrigenAPI-Demo/>`_ and reactor data libraries to perform physics-based reactor depletion calculations from within Cyclus. 
 
 CyBORG uses Origen to dynamically calculate depleted fuel recipes using Origen, interpolating Origen reactor data libraries to the problem-specific conditions including initial enrichment and cycle burnup while also supporting user-specified interpolation parameters for future fuel and reactor types. CyBORG calls the Origen solver API directly to calculate depleted fuel compositions, which then become the output recipe for the CyBORG reactor archetype.
 
