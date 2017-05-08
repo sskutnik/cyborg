@@ -28,7 +28,7 @@ IF(NOT BUILD_TYPE STREQUAL "release")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -U_FORTIFY_SOURCE -fno-stack-protector -g -O1")
     # embed entire source code into binaries for debug builds
     IF(BUILD_TYPE STREQUAL "debug")
-       SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -Og")
+       SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -Og -W")
     ENDIF()
 ENDIF()
 
@@ -140,14 +140,8 @@ IF(NOT CYCLUS_DOC_ONLY)
     MESSAGE("--    HDF5 Library directories: ${HDF5_LIBRARY_DIRS}")
     MESSAGE("--    HDF5 Libraries: ${HDF5_LIBRARIES}")
 
-    # find coin and link to it
-#    FIND_PACKAGE(COIN REQUIRED)
-#    SET(CYBORG_INCLUDE_DIRS ${CYBORG_INCLUDE_DIRS} ${COIN_INCLUDE_DIRS})
-#    set(LIBS ${LIBS} ${COIN_LIBRARIES})
-#    MESSAGE("--    COIN Root: ${COIN_ROOT}")
-#    MESSAGE("--    COIN Include directories: ${COIN_INCLUDE_DIRS}")
-#    MESSAGE("--    COIN Libraries: ${COIN_LIBRARIES}")
 
+    # Find Sqlite
     FIND_PACKAGE( Sqlite3 REQUIRED )
     SET(CYBORG_INCLUDE_DIRS ${CYBORG_INCLUDE_DIRS} ${SQLITE3_INCLUDE_DIR})
     SET(LIBS ${LIBS} ${SQLITE3_LIBRARIES})
@@ -164,8 +158,9 @@ IF(NOT CYCLUS_DOC_ONLY)
     # find SCALE libraries (for ORIGEN)
     # Link ONLY as necessary (i.e., OrigenInterface) to avoid gtest conflict via Nemesis
     FIND_PACKAGE(SCALE REQUIRED)
-    SET(CYBORG_INCLUDE_DIRS ${CYBORG_INCLUDE_DIRS} ${SCALE_INCLUDE_DIRS})
-    #SET(LIBS ${LIBS} ${SCALE_LIBRARIES})
+    SET(CYBORG_INCLUDE_DIRS ${SCALE_INCLUDE_DIRS} ${CYBORG_INCLUDE_DIRS})
+    SET(LIBS ${LIBS} ${SCALE_LIBRARIES})
+    MESSAGE("****LIBS = " ${LIBS})
 
     # include all the directories we just found
     INCLUDE_DIRECTORIES(${CYBORG_INCLUDE_DIRS})

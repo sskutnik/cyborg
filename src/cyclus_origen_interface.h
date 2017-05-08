@@ -1,15 +1,14 @@
+#ifndef Cyclus_Origen_Interface_H
+#define Cyclus_Origen_Interface_H
+
 #include <string>
 #include <vector>
 #include <dirent.h>
 #include <sys/stat.h>
 #include "Origen/Core/Definitions.h"
 #include "Origen/Core/dc/ConcentrationUnit.h"
-#include "Origen/Core/dc/Library.h"
-#include "Origen/Core/dc/Material.h"
 #include "Origen/Core/dc/Power.h"
-#include "Origen/Core/dc/TagManager.h"
 #include "Origen/Core/dc/Time.h"
-#include "Origen/Solver/SolverSelector.h"
 
 /*!
  * \note - 
@@ -42,6 +41,21 @@
  *           --After initial solve, materials can be set based on output
  *             of previous solve to solve for second cycle.
  */
+
+// Forward declarations
+namespace Origen{
+   class Library;
+   class Material;
+   class TagManager;
+   class NuclideSet;
+   class Concentrations;
+
+   typedef std::shared_ptr<Library> SP_Library;
+   typedef std::shared_ptr<Material> SP_Material;
+   typedef std::shared_ptr<TagManager> SP_TagManager;
+   typedef std::shared_ptr<NuclideSet> SP_NuclideSet;
+   typedef std::shared_ptr<Concentrations> SP_Concentrations;
+}
 
 namespace OrigenInterface {
 
@@ -455,3 +469,4 @@ protected:
 };
 } // end namspace
 
+#endif //include guard

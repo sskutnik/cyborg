@@ -2,10 +2,14 @@
 #include <math.h>
 #include <boost/algorithm/string.hpp>
 #include "error.h"
+#include "Origen/Core/dc/Library.h"
+#include "Origen/Core/dc/Material.h"
+#include "Origen/Core/dc/TagManager.h"
 #include "Origen/Core/dc/ConcentrationConverter.h"
 #include "Origen/Core/fn/io.h"
 #include "Origen/Core/fn/interp.h"
 #include "Origen/Core/io/LibraryIO.h"
+#include "Origen/Solver/SolverSelector.h"
 #include "ScaleUtils/IO/DB.h"
 #include "ScaleUtils/IO/Utils.h"
 

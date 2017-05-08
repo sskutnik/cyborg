@@ -3,7 +3,7 @@
 
 #include <string>
 #include "cyclus.h"
-//#include "cyclus_origen_interface.h"
+#include "cyclus_origen_interface.h"
 
 /// @class Reactor
 ///
