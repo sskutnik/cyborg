@@ -28,7 +28,7 @@ IF(NOT BUILD_TYPE STREQUAL "release")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -U_FORTIFY_SOURCE -fno-stack-protector -g -O1")
     # embed entire source code into binaries for debug builds
     IF(BUILD_TYPE STREQUAL "debug")
-       SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -Og -W")
+       SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -Og")
     ENDIF()
 ENDIF()
 
