@@ -123,7 +123,7 @@ class Reactor : public cyclus::Facility,
   }
 
   void setup_origen_interp_params(OrigenInterface::cyclus2origen&, const cyclus::Material::Ptr);
-  void setup_origen_power_history(OrigenInterface::cyclus2origen&, const int, const double);
+  void setup_origen_power_history(OrigenInterface::cyclus2origen&, const int, const int, const double);
   void setup_origen_materials(OrigenInterface::cyclus2origen&, const cyclus::Material::Ptr, const int);
   cyclus::CompMap get_origen_discharge_recipe(OrigenInterface::cyclus2origen&);
 

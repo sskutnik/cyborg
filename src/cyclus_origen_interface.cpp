@@ -194,9 +194,9 @@ void cyclus2origen::set_materials(const std::vector<int> &ids, const std::vector
   Origen::SP_Material mat = Origen::SP_Material(new Origen::Material(b_lib,name,id,b_vol));
   mat->set_concs_at(*b_concs,0);
 
-  //std::cerr << "b_concs: units = " << b_concs->units()  << "  sum_hm = " << b_concs->sum_hm() << std::endl;
-  //std::cerr << "Material::initial_mass() = " << mat->initial_mass() << " grams.\n";
-  //std::cerr << "Material::initial_hm_mass() = " << mat->initial_hm_mass() << " grams.\n";
+  std::cerr << "b_concs: units = " << b_concs->units()  << "  sum_hm = " << b_concs->sum_hm() << std::endl;
+  std::cerr << "Material::initial_mass() = " << mat->initial_mass() << " grams.\n";
+  std::cerr << "Material::initial_hm_mass() = " << mat->initial_hm_mass() << " grams.\n";
 
   b_mat = mat; // Used in prob_spec_lib function.
   prob_spec_lib(b_lib,b_times,b_fluxes,b_powers); // Takes b_lib and interpolates to new burnups based on b_times and b_powers.
@@ -500,21 +500,26 @@ void cyclus2origen::solve(std::vector<double>& times, std::vector<double>& fluxe
    db.set<std::string>("solver","cram");
    solver = Origen::SolverSelector::get_solver(db);
    b_mat->set_solver(solver);
- 
-   size_t num_steps = powers.size()>fluxes.size() ? powers.size() : fluxes.size();
-   std::vector<double> dt_rel(2, 0.5);
-   for(size_t i = 0; i < num_steps; i++){
     
-     b_mat->add_step((times[i+1]-times[i])*Origen::Time::factor<Origen::Time::SECONDS>(this->b_timeUnits));
-     b_mat->set_transition_matrix(b_mat->library()->newsp_transition_matrix_at(i));
+   size_t num_steps = powers.size()>fluxes.size() ? powers.size() : fluxes.size();
+   size_t libPos = 0;
+   std::vector<double> dt_rel(2, 0.5);
 
+   auto powFluxIter = (powers.size() > 0) ? powers.begin() : fluxes.begin();
+   for(size_t i = 0; i < num_steps; i++){             
+     b_mat->add_step((times[i+1]-times[i])*Origen::Time::factor<Origen::Time::SECONDS>(this->b_timeUnits));
+     b_mat->set_transition_matrix(b_mat->library()->newsp_transition_matrix_at(libPos));
      if(b_fluxes.size()==0) {
-        b_mat->set_power(powers[i]);
-     } else if(powers.size()==0) {
-        b_mat->set_flux(fluxes[i]);
+        b_mat->set_power(*powFluxIter);
+     } else {
+        b_mat->set_flux(*powFluxIter);
      }
      std::vector<double> tmpFlux, tmpPower;
      b_mat->solve(dt_rel, &tmpFlux, &tmpPower);
+
+     // Use the next library position if the next time has a non-zero power
+     if(*std::next(powFluxIter,1) > 0) ++libPos;
+     std::advance(powFluxIter,1);
    }
 }
 
@@ -748,32 +753,52 @@ void cyclus2origen::prob_spec_lib(Origen::SP_Library lib, const std::vector<doub
 
    if(times.size()!=powers.size()+1){
       std::stringstream ss;
-      ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Powers or fluxes vectors not exactly 1 element shorter than times vector!\n" \
-         << "Powers or fluxes vector has " << powers.size() << " elements and times vector has " << times.size() << " elements.\n";
+      ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ 
+         << ") : Powers or fluxes vectors not exactly 1 element shorter than times vector!\n" 
+         << "Powers or fluxes vector has " << powers.size() << " elements and times vector has " 
+         << times.size() << " elements.\n";
       throw cyclus::ValueError(ss.str());
    }
 
-   std::vector<double> burnups;   
-   double buTmp;
+   std::vector<double> cycBU, interpBU;
+   double deltaBU;
+   cycBU.push_back(0.0);
+
+   size_t nonZeroPowers = std::count_if(powers.begin(), powers.end(), [](double p){return p > 0;});
+
    for(size_t i = 0; i < powers.size(); i++){
+      // Temporary; eventually just get rid of extra libs for down cycles
+      if(! (powers[i] > 0)) continue;
+//         interpBU.push_back(interpBU.back());
+//         cycBU.push_back(cycBU.back());
+//         continue;
+//      }
       // Powers in watts, times in days, and hm mass in grams => buTmp in MWd/MTU (equiv. to W*d/g)
-      buTmp = powTmp[i]*(timeTmp[i+1]-timeTmp[i])/b_mat->initial_hm_mass();
-      if(i > 0) buTmp += burnups.back();
-      burnups.push_back(buTmp);
+      deltaBU = powTmp[i]*(timeTmp[i+1]-timeTmp[i])/b_mat->initial_hm_mass();
+      //std::cerr << "deltaBU = " << deltaBU << "  cycBU.back() = " << cycBU.back() << std::endl;
+      // NOTE: We're interpolating to cycle MIDPOINT burnup, not end burnup
+      interpBU.push_back(deltaBU/2 + cycBU.back());
+      cycBU.push_back(deltaBU + cycBU.back());
+
+      // Eventually just get rid of extra libraries for down cycles
    }
-   if(burnups.size()!=powers.size()){
+   //std::cerr << "interpBU.size() " << interpBU.size() << "  powers.size() " << powers.size() << std::endl;
+   if(interpBU.size() != nonZeroPowers){
       std::stringstream ss;
-      ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ << ") : Calculated burnup vector does not have same size as provided powers vector!\n";
+      ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ 
+         << ") : Calculated burnup vector does not have same size as provided powers vector!\n";
       throw cyclus::StateError(ss.str());
    }
-  b_lib = lib->interpolate_Interp1D(burnups);
+   for(auto bu : interpBU) std::cerr << "prob_spec_lib: BU = " << bu << std::endl;
+   b_lib = lib->interpolate_Interp1D(interpBU);
 }
 
 const std::string cyclus2origen::get_tag_manager_string() const
 {
   if(!b_tm) {
      std::stringstream ss;
-     ss << "Cyborg::reactor::get_tag_manager_string(" << __LINE__ << ") : TagManager not initialized!\n";
+     ss << "Cyborg::reactor::get_tag_manager_string(" << __LINE__ 
+        << ") : TagManager not initialized!\n";
      throw cyclus::StateError(ss.str());
   }
 /*
@@ -793,7 +818,8 @@ const std::string cyclus2origen::get_tag_manager_string() const
 */
   if(b_times.size() == 0 || b_powers.size() == 0) {
      std::stringstream ss;
-     ss << "WARNING: Cyborg::reactor::get_tag_manager_string(" << __LINE__ << ") : Power history not initialized!\n";
+     ss << "WARNING: Cyborg::reactor::get_tag_manager_string(" << __LINE__ 
+        << ") : Power history not initialized!\n";
      cyclus::Warn<cyclus::WARNING>(ss.str());
   }
 

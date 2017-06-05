@@ -346,7 +346,7 @@ cyclus::Composition::Ptr Reactor::Deplete_(cyclus::Material::Ptr mat, const int 
     react.set_id_tag("Assembly Type",assembly_type);
     
     this->setup_origen_interp_params(react, mat);
-    this->setup_origen_power_history(react, n_cycles, last_cycle);
+    this->setup_origen_power_history(react, n_cycles, n_assem, last_cycle);
 
 /*
     std::cerr << "ID TAGS\n=======" << std::endl;
@@ -452,7 +452,8 @@ void Reactor::setup_origen_interp_params(OrigenInterface::cyclus2origen& react, 
     //if(this->mod_density > 0.0) react.add_parameter("Moderator Density",this->mod_density);   
 }
 
-void Reactor::setup_origen_power_history(OrigenInterface::cyclus2origen& react, const int n_cycles, const double last_cycle) {
+void Reactor::setup_origen_power_history(OrigenInterface::cyclus2origen& react, const int n_cycles, 
+                                         const int n_assem,  const double last_cycle) {
 
     std::vector<double> dp_time, dp_pow;
     dp_time.push_back(0.0);
@@ -463,19 +464,20 @@ void Reactor::setup_origen_power_history(OrigenInterface::cyclus2origen& react, 
        // Cycle timestep is in months; use years for ORIGEN for simplicity
        double time_tmp = static_cast<double>(cycle_time)/12.0;
        if(i == (n_cycles - 1)) time_tmp *= last_cycle;
-       dp_time.push_back(time_tmp + dp_time.back());
-
-       // Convert power to MWt 
-       double cyclePower = power_cap * core_power_frac[i] * 1E6;
-       //std::cerr << "Pushing back power: " << cyclePower << std::endl;
-       dp_pow.push_back(cyclePower);
-       
-       // Decay fuel during reload
-       if(refuel_time > 0) {
+//       for(size_t j=0; j<2; ++j) {
+         dp_time.push_back(time_tmp + dp_time.back());
+         std::cerr << "Pushing back time: " << dp_time.back() << std::endl;
+         // Convert power to MWt 
+         double cyclePower = power_cap * core_power_frac[i] * n_assem / n_assem_batch * 1E6;
+         //std::cerr << "Pushing back power: " << cyclePower << std::endl;
+         dp_pow.push_back(cyclePower);
+      // }
+       // Decay fuel during reload; don't include decay from last reload cycle
+       if(refuel_time > 0 and i < (n_cycles-1)) {
           dp_time.push_back(dp_time.back() + static_cast<double>(refuel_time)/12.0);
           dp_pow.push_back(0.0);
           //std::cerr << "Pushing back down time: " << dp_time.back() +  static_cast<double>(refuel_time)/12.0 << std::endl;
-       }
+       }   
     }
     react.set_time_units("y");
     react.set_time_steps(dp_time); 
@@ -511,8 +513,8 @@ void Reactor::setup_origen_materials(OrigenInterface::cyclus2origen& react, cons
 
     react.set_mat_units("KILOGRAMS");
     react.set_materials(in_ids,norm_mass);
-    //std::cerr << "Total fuel mass depleted: " 
-    //          << std::accumulate(norm_mass.begin(),norm_mass.end(), 0.0) << std::endl;
+    std::cerr << "Total fuel mass depleted: " 
+              << std::accumulate(norm_mass.begin(),norm_mass.end(), 0.0) << std::endl;
 }
 
 // Get materials and convert nuclide ids back to Cyclus format
@@ -530,8 +532,8 @@ cyclus::CompMap Reactor::get_origen_discharge_recipe(OrigenInterface::cyclus2ori
 
     // Normalize to atom fractions
     double atomNorm = std::accumulate(org_atom.begin(),org_atom.end(), 0.0);    
-    std::transform(org_atom.begin(), org_atom.end(), org_atom.begin(), 
-                   std::bind1st(std::multiplies<double>(),1.0/atomNorm));
+    //std::transform(org_atom.begin(), org_atom.end(), org_atom.begin(), 
+    //               std::bind1st(std::multiplies<double>(),1.0/atomNorm));
 
     cyclus::CompMap v;
     for(int j=0; j!=org_id.size(); ++j){       
