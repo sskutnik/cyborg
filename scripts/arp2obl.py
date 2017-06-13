@@ -1,3 +1,4 @@
+#!/usr/bin/python
 ###############################################################################
 ## Arplib to Origen Binary Library (.obl) converter
 ## Nicholas C Sly
@@ -17,7 +18,7 @@
 
 import os, sys, fnmatch, shutil, re, string, time
 from subprocess import *
-from datetime import date
+#from datetime import date
 
 ##---------------------------------------------------------------------------##
 ## PRESET VARIABLES
@@ -25,7 +26,7 @@ from datetime import date
 
 ## Change if location of obiwan executable is different.
 ## Alternatively, use the --obiwan option to specify the location
-exec_line = '/home/sskutnik/scale6.2-release/build/INSTALL/bin/obiwan '
+exec_line = 'obiwan '
 
 ##---------------------------------------------------------------------------##
 ## Usage info if requested.
@@ -55,6 +56,8 @@ if ('--help' in sys.argv):
 ##---------------------------------------------------------------------------##
 ## Checking system arguments for non-default values.
 ##---------------------------------------------------------------------------##
+
+libdir = '.'
 
 if ('--arpdata' in sys.argv):
     arpdata_loc = sys.argv[sys.argv.index('--arpdata') + 1]
@@ -90,7 +93,7 @@ for line in arpdata:
     ## name for the assembly type.
     if (re.search("^!",line)):
         line_list=line.split('!')
-        name=line_list[1]
+        name=line_list[1].rstrip()
         print "Found Assembly Type: {0}".format(name)
         line_num=1
         file_names = []
@@ -99,8 +102,7 @@ for line in arpdata:
     ## The next line of the section tells you how many items to expect in the 
     ## following sections.
     elif line_num == 2:
-        line_tmp=line.split('\n')[0]
-        line_tmp.lstrip(' ')
+        line_tmp=line.split('\n')[0].lstrip(' ')
         line_list=line_tmp.split(' ')
         i=0
         while i<len(line_list):
@@ -193,7 +195,8 @@ for line in arpdata:
         print 'Pu moderator densities are: {0}'.format(modden)
     ## After the above sections, the arpdata.txt file lists the filenames
     ## of all of the libraries for this assembly type in a certain order.
-    elif (((type == 1 and line_num >= 4) or (type == 2 and line_num >= 7)) and (len(file_names) != num_files)):
+    elif ( ( (type == 1 and line_num >= 4) or (type == 2 and line_num >= 7)) 
+             and (len(file_names) != num_files)):
         line_tmp=line.split('\n')[0]
         line_list = line_tmp.split("'")
         for item in line_list:
@@ -214,35 +217,40 @@ for line in arpdata:
         line_list=line_tmp.split(' ')
         for item in line_list:
             if item != '': burnup_list.append(item)
-        print 'Length of burnup_list = {0} and num_burnsteps = {1}'.format(len(burnup_list),num_burnsteps)
-    ## With all of that information collected, it's time to call old Obiwan.
+        print 'Length of burnup_list = {0} and num_burnsteps = {1}' \
+              .format(len(burnup_list),num_burnsteps)
+        ## With all of that information collected, it's time to call old Obiwan.
         if (len(burnup_list) == int(num_burnsteps)):
             print 'Entering execution section of the program.'
             burn_string = ''
             for burns in burnup_list:
                 burn_string+=burns
                 if burns != burnup_list[len(burnup_list) - 1]: burn_string += ' '
-##            for files in file_names:
             if type == 1:
                 for val in enrich:
                     for den in modden:
                         file_num = enrich.index(val)*len(modden)+modden.index(den)
-                        os.system("{0} tag -idtags='Assembly Type={1},Fuel Type=Uranium,\
-Burnup Times={2}' -interptags='Enrichment={3},\
-Moderator Density={4}' {5}".format(exec_line,name,\
-burn_string,val,den,file_names[file_num]))
+                        os.system(("{0} tag -idtags='Assembly Type={1}," + \
+                                   "Fuel Type=Uranium,Burnup Times={2}' " + \
+                                   "-interptags='Enrichment={3}," + \
+                                   "Moderator Density={4}' {5}") \
+                                   .format(exec_line,name,burn_string,val,\
+                                           den,file_names[file_num]))
                         print "Modified {0}".format(file_names[file_num])
             if type == 2:
                 for den in modden:
                     for pu239 in pu239_vals:
                         for pu in pu_content:
-                            file_num = (modden.index(den)*len(pu239_vals)+pu239_vals.index(pu239))*len(pu_content)+\
-pu_content.index(pu)
-                            os.system("{0} tag -idtags='Assembly Type={1},\
-Fuel Type=MOX,Burnup Times={2}' \
--interptags='Moderator Density={3},\
-Plutonium Content={4},Plutonium-239 Content={5}' {6}".format(exec_line,name,burn_string,den,pu,pu239,\
-file_names[file_num]))
+                            file_num = (modden.index(den)*len(pu239_vals) + \
+                                        pu239_vals.index(pu239))*len(pu_content) + \
+                                        pu_content.index(pu)
+                            os.system(("{0} tag -idtags='Assembly Type={1}," + \
+                                       "Fuel Type=MOX,Burnup Times={2}' " + \
+                                       "-interptags='Moderator Density={3}," + \
+                                       "Plutonium Content={4}," + \
+                                       "Plutonium-239 Content={5}' {6}") \
+                                       .format(exec_line,name,burn_string,den,\
+                                               pu,pu239,file_names[file_num]))
                             print "Modified {0}".format(file_names[file_num])
     line_num+=1
 
