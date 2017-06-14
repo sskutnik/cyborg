@@ -213,35 +213,18 @@ void cyclus2origen::set_materials(const std::vector<int> &ids, const std::vector
 
 
   int id = 1001; // Arbitrary.
-  b_lib = b_lib_interp->clone();
-  Origen::SP_Material mat = Origen::SP_Material(new Origen::Material(b_lib,name,id,b_vol));
-  mat->set_concs_at(*b_concs,0);
 
-  std::cerr << "b_concs: units = " << b_concs->units()  << "  sum_hm = " 
-            << b_concs->sum_hm() << std::endl;
-  std::cerr << "Material::initial_mass() = " << mat->initial_mass() << " grams." 
+  b_mat = Origen::SP_Material(new Origen::Material(b_lib_interp,name,id,b_vol));
+  b_mat->set_concs_at(*b_concs,0);
+/*
+  std::cerr << "Material::initial_mass() = " << b_mat->initial_mass() << " grams." 
             << std::endl;
-  std::cerr << "Material::initial_hm_mass() = " << mat->initial_hm_mass() 
+  std::cerr << "Material::initial_hm_mass() = " << b_mat->initial_hm_mass() 
             << " grams." << std::endl;
-
-  //b_mat = mat; // Used in prob_spec_lib function.
-  b_mat.swap(mat);
-  prob_spec_lib(b_lib,b_times,b_fluxes,b_powers); // Takes b_lib and interpolates to new burnups based on b_times and b_powers.
-  
-  // Test: are we getting the same concs back out that we stored?
-  std::map<int,double> testMasses;
-  this->get_masses_at_map(0, testMasses, "zzzaaai", "KILOGRAMS");
-  for(auto const &key : testMasses) {
-     if(key.second > 0) std::cerr << key.first << "->" << key.second << std::endl;
-  }
-
-/* 
- * SES: Don't see why this swap is needed; no apparent side effects for b_mat
-  auto mat2 = std::make_shared<Origen::Material>(b_lib,name,id,b_vol); // Generates new material based on b_lib from prob_spec_lib
-  mat2->set_concs_at(*b_concs,0); // Concentrations are the same regardless.
-  b_mat->clear();
-  b_mat.swap(mat2);
 */
+  // Takes b_lib and interpolates to new burnups based on b_times and b_powers.
+  prob_spec_lib(b_lib_interp,b_times,b_fluxes,b_powers); 
+
 }
 
 void cyclus2origen::reset_material(){
@@ -436,7 +419,7 @@ void cyclus2origen::interpolate() {
     throw cyclus::ValueError(ss.str());
   }
 */
-  std::vector<Origen::TagManager> tagman;
+  std::vector<Origen::TagManager> libTMs;
   if(b_lib_names.size()==0 && b_tagman_list.size()==0){
 
     if(b_lib_path.size()==0) {
@@ -475,11 +458,11 @@ void cyclus2origen::interpolate() {
 
     //std::vector<Origen::SP_TagManager> tms = Origen::collectLibrariesParallel(b_lib_names);
     // Serial for now until I can get the repo update working
-    std::vector<Origen::SP_TagManager> tms = Origen::collectLibraries(b_lib_names);
-    for(auto& tm : tms) tagman.push_back(*tm);
+    std::vector<Origen::SP_TagManager> tms = Origen::collectLibraries(b_lib_names); 
+    for(auto& tm : tms) libTMs.push_back(*tm);
 
     // Bail if no libraries found
-    if(tagman.size() == 0) {
+    if(libTMs.size() == 0) {
       std::stringstream ss;
       ss << "Cyborg::reactor::interpolate(" << __LINE__ 
          << ") : No libraries found that have tag managers!" << std::endl;
@@ -487,9 +470,9 @@ void cyclus2origen::interpolate() {
     }
 
     // Down-select to libraries matching specified ID tags
-    tagman = Origen::selectLibraries(tagman,*b_tm);
+    libTMs = Origen::selectLibraries(libTMs,*b_tm);
     b_tagman_list.clear();
-    for(auto tm : tagman) b_tagman_list.push_back(std::make_shared<Origen::TagManager>(tm));
+    for(auto tm : libTMs) b_tagman_list.push_back(std::make_shared<Origen::TagManager>(tm));
     if(b_tagman_list.size() == 0){
       std::stringstream ss;
       ss << "Cyborg::reactor::interpolate(" << __LINE__ 
@@ -499,11 +482,10 @@ void cyclus2origen::interpolate() {
   }
   else
   {
-    for(auto& tm : b_tagman_list) tagman.emplace_back(*tm);
+    // We already have a list of identified libraries to interpolate
+    for(auto& tm : b_tagman_list) libTMs.emplace_back(*tm);
   }
-
-  b_lib_interp = Origen::interpLibraryND(tagman,*b_tm);
-  //b_lib = b_lib_interp->clone(); // SES: Let's wait to clone until we use the library...
+  b_lib_interp = Origen::interpLibraryND(libTMs,*b_tm);
   b_interp_name = (b_lib_interp->scp_tag_manager())->getIdTag("Filename");
 }
 
@@ -561,15 +543,7 @@ void cyclus2origen::solve(std::vector<double>& times, std::vector<double>& fluxe
          << "  Run set_materials first." << std::endl;
       throw StateError(ss.str());
    }
-/*
- * SES: This doesn't look right; when do burnups get interpolated for this? Where does the library & initial concs get set?
-   if(b_mat->nsteps() != 0){
-      std::cerr << "Recalculating to new burnups using previous interpolable parameters." << std::endl \
-                << "Previous results will no longer be accessible." << std::endl;
-      b_lib = b_lib_interp->clone();
-      this->reset_material();
-   }
-*/
+
    // Initialize the solver
    Origen::SP_Solver solver;
    ScaleUtils::IO::DB db;
@@ -584,9 +558,11 @@ void cyclus2origen::solve(std::vector<double>& times, std::vector<double>& fluxe
    auto powFluxIter = (powers.size() > 0) ? powers.begin() : fluxes.begin();
    for(size_t i = 0; i < num_steps; i++){             
      b_mat->add_step((times[i+1]-times[i])*Origen::Time::factor<Origen::Time::SECONDS>(this->b_timeUnits));
-     b_mat->set_transition_matrix(b_mat->library()->newsp_transition_matrix_at(libPos));
+     b_mat->set_transition_matrix(b_lib->newsp_transition_matrix_at(libPos));
+      
      if(b_fluxes.size()==0) {
         b_mat->set_power(*powFluxIter);
+        std::cerr << "(*powFluxIter) = " << (*powFluxIter) << " - libPos = " << libPos <<  std::endl;
      } else {
         b_mat->set_flux(*powFluxIter);
      }
@@ -838,7 +814,6 @@ void cyclus2origen::prob_spec_lib(Origen::SP_Library lib, const std::vector<doub
       double timeFactor = Origen::Time::factor(Origen::Time::DAYS, b_timeUnits);
       std::transform(timeTmp.begin(), timeTmp.end(), timeTmp.begin(),
                      std::bind1st(std::multiplies<double>(),timeFactor));
-      for(auto time : timeTmp) std::cerr << time << std::endl;      
    }
    if(!fluxes.empty() && powers.empty() ) {
       for(auto& flux : fluxes) powTmp.push_back(flux*b_mat->power_factor_bos());
@@ -872,7 +847,6 @@ void cyclus2origen::prob_spec_lib(Origen::SP_Library lib, const std::vector<doub
 
       // Powers in watts, times in days, and hm mass in grams => buTmp in MWd/MTU (equiv. to W*d/g)
       deltaBU = powTmp[i]*(timeTmp[i+1]-timeTmp[i])/b_mat->initial_hm_mass();
-      std::cerr << "deltaBU = " << deltaBU << "  cycBU.back() = " << cycBU.back() << std::endl;
       // NOTE: We're interpolating to cycle MIDPOINT burnup, not end burnup
       interpBU.push_back(deltaBU/2 + cycBU.back());
       cycBU.push_back(deltaBU + cycBU.back());
@@ -885,7 +859,6 @@ void cyclus2origen::prob_spec_lib(Origen::SP_Library lib, const std::vector<doub
          << std::endl;
       throw cyclus::StateError(ss.str());
    }
-   for(auto bu : interpBU) std::cerr << "prob_spec_lib: BU = " << bu << std::endl;
    b_lib = lib->interpolate_Interp1D(interpBU);
 }
 

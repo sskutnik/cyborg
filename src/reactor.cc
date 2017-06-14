@@ -260,21 +260,10 @@ void Reactor::Transmute_(int n_assem, int n_cycles, double last_cycle) {
      n_cycles = round(this->n_assem_core / this->n_assem_batch);
   }
 
-  // Check that all assemblies in the batch have the same composition
-
-  //bool isHomogenous = (std::adjacent_find( matIDs.begin(), matIDs.end(), std::not_equal_to<int>() ) == matIDs.end());
- /*
-  for(size_t i=0; i < core.count(); ++i) {
-    auto mat = core.Pop();
-    std::cerr << "PRE-TRANSMUTE: core->mat->id() = " << mat->qual_id() << std::endl;
-    core.Push(mat);
-  }
-*/
 
   MatVec old = core.PopN(std::min(n_assem, core.count()));
 
-
-  // Check to see if assemblies have different compositions, 
+  // Check whether all assemblies in the batch have the same composition
   // Note: Need to actually check by mass composition, as composition IDs 
   //       can be different for the same composition...
 
@@ -348,12 +337,6 @@ cyclus::Composition::Ptr Reactor::Deplete_(cyclus::Material::Ptr mat, const int 
     this->setup_origen_interp_params(react, mat);
     this->setup_origen_power_history(react, n_cycles, n_assem, last_cycle);
 
-/*
-    std::cerr << "ID TAGS\n=======" << std::endl;
-    react.list_id_tags();
-    std::cerr << "\nINTERP PARAMS\n=======" << std::endl;
-    react.list_parameters();
-*/
 
 /*
  *  Note: Do we need to consider non-interpolated parts of the recipe too? (e.g., Pu-240 content, U-234 content...?) 
@@ -411,10 +394,7 @@ cyclus::Composition::Ptr Reactor::Deplete_(cyclus::Material::Ptr mat, const int 
 
 void Reactor::setup_origen_interp_params(OrigenInterface::cyclus2origen& react, const cyclus::Material::Ptr mat) {
     // Set Interpolable parameters   
-/*    for(auto iso : mat->comp()->atom()) {
-       std::cerr << iso.first << "->" << iso.second << std::endl;
-    }
-*/
+
     if(boost::to_upper_copy(this->fuel_type) == "UOX") {
        double enrich = get_iso_mass_frac(92, 235, mat->comp()) * 100.0;
        if(enrich <= 0.0 || enrich > 100.0) {         
@@ -464,19 +444,16 @@ void Reactor::setup_origen_power_history(OrigenInterface::cyclus2origen& react, 
        // Cycle timestep is in months; use years for ORIGEN for simplicity
        double time_tmp = static_cast<double>(cycle_time)/12.0;
        if(i == (n_cycles - 1)) time_tmp *= last_cycle;
-//       for(size_t j=0; j<2; ++j) {
-         dp_time.push_back(time_tmp + dp_time.back());
-         std::cerr << "Pushing back time: " << dp_time.back() << std::endl;
-         // Convert power to MWt 
-         double cyclePower = power_cap * core_power_frac[i] * n_assem / n_assem_batch * 1E6;
-         //std::cerr << "Pushing back power: " << cyclePower << std::endl;
-         dp_pow.push_back(cyclePower);
-      // }
+       dp_time.push_back(time_tmp + dp_time.back());
+
+       // Convert power to MWt 
+       double cyclePower = power_cap * core_power_frac[i] * n_assem / n_assem_batch * 1E6;
+       dp_pow.push_back(cyclePower);
+
        // Decay fuel during reload; don't include decay from last reload cycle
        if(refuel_time > 0 and i < (n_cycles-1)) {
           dp_time.push_back(dp_time.back() + static_cast<double>(refuel_time)/12.0);
           dp_pow.push_back(0.0);
-          //std::cerr << "Pushing back down time: " << dp_time.back() +  static_cast<double>(refuel_time)/12.0 << std::endl;
        }   
     }
     react.set_time_units("y");
@@ -509,39 +486,27 @@ void Reactor::setup_origen_materials(OrigenInterface::cyclus2origen& react, cons
     std::transform(mass_fraction.begin(), mass_fraction.end(), norm_mass.begin(), 
          std::bind1st(std::multiplies<double>(),mat->quantity()/massNorm * n_assem));
 
-    //for(auto mass : norm_mass) { std::cerr << "Normed mass: " << mass <<  std::endl; }
-
     react.set_mat_units("KILOGRAMS");
     react.set_materials(in_ids,norm_mass);
-    std::cerr << "Total fuel mass depleted: " 
-              << std::accumulate(norm_mass.begin(),norm_mass.end(), 0.0) << std::endl;
 }
 
 // Get materials and convert nuclide ids back to Cyclus format
 cyclus::CompMap Reactor::get_origen_discharge_recipe(OrigenInterface::cyclus2origen& react) {
-
-    std::vector<int> org_id;
-    react.get_ids_zzzaaai(org_id);
-    
-    
-    for(auto & atom : org_id) { atom = pyne::nucname::zzaaam_to_id(atom); }
    
     // Get mass data from ORIGEN
     std::vector<double> org_atom;
-    react.get_masses_final(org_atom,"GATOMS");
-
-    // Normalize to atom fractions
-    double atomNorm = std::accumulate(org_atom.begin(),org_atom.end(), 0.0);    
-    //std::transform(org_atom.begin(), org_atom.end(), org_atom.begin(), 
-    //               std::bind1st(std::multiplies<double>(),1.0/atomNorm));
+    react.get_masses_final(org_atom,"GATOMS");   
 
     cyclus::CompMap v;
-    for(int j=0; j!=org_id.size(); ++j){       
-       if(org_atom[j] > 0.) { 
-          v[org_id[j]] = org_atom[j];
-          //if(org_atom[j] > 1.E-4) std::cerr << "Setting v[" << org_id[j] << "] to: " << org_atom[j] << std::endl;
+    int pyneID;
+    for(auto const &nucl : org_atom) {
+       if(nucl.second > 0) {
+          pyneID = pyne::nucname::zzaaam_to_id(nucl.first);
+          v[pyneID] = nucl.second;
+          if(nucl.second > 1E-4) std::cerr << "Setting v[" << pyneID << "] -> " << nucl.second << std::endl;
        }
     }
+
     return v;
 }
 
