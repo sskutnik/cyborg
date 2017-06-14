@@ -352,7 +352,9 @@ public:
      */
     void get_masses_at(int, std::vector<double>&, const std::string="kilograms") const;
 
-    void get_masses_at_map(int, std::map<int,double>&, const std::string="zzzaaai", const std::string="kilograms") const;
+    void get_masses_at_map(int, std::map<int,double>&, const std::string="kilograms",
+                           const std::string="zzzaaai") const;
+
 
     /*!
      ** \brief  Function to retrieve the concentrations at the end
@@ -369,7 +371,8 @@ public:
      ** \param  std::map to be filled with ids for keys and final
      **         masses for values.
      */
-    void get_masses_final_map(std::map<int,double>&, const std::string="zzzaaai", const std::string="kilograms") const;
+    void get_masses_final_map(std::map<int,double>&, const std::string="kilograms", 
+                              const std::string="zzzaaai") const;
 
     /*!
      ** \brief  Function to return the IDs that correspond to the

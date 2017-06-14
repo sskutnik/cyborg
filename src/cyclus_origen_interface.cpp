@@ -562,7 +562,6 @@ void cyclus2origen::solve(std::vector<double>& times, std::vector<double>& fluxe
       
      if(b_fluxes.size()==0) {
         b_mat->set_power(*powFluxIter);
-        std::cerr << "(*powFluxIter) = " << (*powFluxIter) << " - libPos = " << libPos <<  std::endl;
      } else {
         b_mat->set_flux(*powFluxIter);
      }
@@ -609,7 +608,9 @@ void cyclus2origen::get_masses_at(int p, std::vector<double> &masses_out, const 
    tmpConcs->get_vals(masses_out); 
 }
 
-void cyclus2origen::get_masses_at_map(int p, std::map<int,double> &masses_out, const std::string id_type, const std::string units) const{
+void cyclus2origen::get_masses_at_map(int p, std::map<int,double> &masses_out, 
+                       const std::string units, const std::string id_type) const 
+{
    using cyclus::ValueError;
 
    if( p < 0 || p >= b_mat->ntimes() ){
@@ -653,16 +654,17 @@ void cyclus2origen::get_masses_final(std::vector<double> &masses_out, const std:
   this->get_masses_at(b_mat->nsteps(), masses_out, units);
 }
 
-void cyclus2origen::get_masses_final_map(std::map<int,double> &masses_out, const std::string id_type, const std::string units) const
+void cyclus2origen::get_masses_final_map(std::map<int,double> &masses_out, 
+                       const std::string units, const std::string id_type) const
 {
    using cyclus::ValueError;
 
    std::vector<int> ids;   
    if(id_type == "sizzzaaa"){
       this->get_ids(ids);
-   }else if(id_type == "zzzaaai"){
+   } else if(id_type == "zzzaaai"){
        this->get_ids_zzzaaai(ids);
-   }else{
+   } else{
        std::stringstream ss;
        ss << "Cyborg::reactor::get_masses_final_map(" << __LINE__ 
           << ") : Type of nuclide ids requested is not recognized."

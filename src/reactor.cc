@@ -494,8 +494,8 @@ void Reactor::setup_origen_materials(OrigenInterface::cyclus2origen& react, cons
 cyclus::CompMap Reactor::get_origen_discharge_recipe(OrigenInterface::cyclus2origen& react) {
    
     // Get mass data from ORIGEN
-    std::vector<double> org_atom;
-    react.get_masses_final(org_atom,"GATOMS");   
+    std::map<int,double> org_atom;
+    react.get_masses_final_map(org_atom,"GATOMS");   
 
     cyclus::CompMap v;
     int pyneID;
@@ -503,9 +503,11 @@ cyclus::CompMap Reactor::get_origen_discharge_recipe(OrigenInterface::cyclus2ori
        if(nucl.second > 0) {
           pyneID = pyne::nucname::zzaaam_to_id(nucl.first);
           v[pyneID] = nucl.second;
-          if(nucl.second > 1E-4) std::cerr << "Setting v[" << pyneID << "] -> " << nucl.second << std::endl;
+          //if(nucl.second > 1E-4) std::cerr << "Setting v[" << pyneID << "] -> " << nucl.second << std::endl;
        }
     }
+    // Force normalization
+    //cyclus::compmath::Normalize(&v,1.0);
 
     return v;
 }
