@@ -448,8 +448,17 @@ protected:
      ** \note   It is assumed that either fluxes or powers will be an empty
      **         vector.  Anything else will throw an error.
      */
-    void prob_spec_lib(Origen::SP_Library, const std::vector<double>&, 
-                       const std::vector<double>&, const std::vector<double>&);
+    Origen::SP_Library  prob_spec_lib(Origen::SP_Library, const std::vector<double>&, 
+                       const std::vector<double>&, const std::vector<double>&) const;
+
+   /*!
+    ** \brief   Helper function to collect tagManagers from on-disk Origen
+    **          libraries from those libraries matching specified ID tags
+    **
+    ** \returns List of tagManager objects (with on-disk filenames) of 
+                Origen libraries matching ID tags specified on b_tm
+    */
+    std::vector<Origen::TagManager> collectOrigenTMs();
 
     Origen::SP_Library b_lib;
     Origen::SP_Library b_lib_interp;
@@ -460,7 +469,7 @@ protected:
     Origen::SP_Concentrations b_concs;
     std::vector<std::string> b_lib_names;
     std::string b_lib_path;
-    std::string b_interp_name;
+    //std::string b_interp_name;
     const double b_vol=1.; // cm^3  
     std::vector<double> b_burnups;
     std::vector<double> b_fluxes;

@@ -214,20 +214,20 @@ TEST_F(OrigenInterfaceTester,materialTest){
   tester.set_time_steps(times);
 
   EXPECT_NO_THROW(tester.set_materials(ids,concs));
+  /* Commented out until such time as fluxes are properly implemented.
+   ** Currently hindered by the need to translate to flux in order to
+   ** interpolate the Origen library over burnup to get transition
+   ** structure data at the appropriate burnups, which is the only way
+   ** to get a relevant conversion from flux to power/burnup.
+   ** 
+   ** Followup: Probably not that hard as it may be built into one of
+   ** The ORIGEN objects.  Currently neglected out of ambivalance.
+   TEST_F(OrigenInterfaceTester,fluxTest){
+   EXPECT_THROW(tester.set_fluxes(dblank),cyclus::StateError);
+    tester.set_fluxes(fluxes);
+  */
 }
-/* Commented out until such time as fluxes are properly implemented.
-** Currently hindered by the need to translate to flux in order to
-** interpolate the Origen library over burnup to get transition
-** structure data at the appropriate burnups, which is the only way
-** to get a relevant conversion from flux to power/burnup.
-** 
-** Followup: Probably not that hard as it may be built into one of
-** The ORIGEN objects.  Currently neglected out of ambivalance.
-TEST_F(OrigenInterfaceTester,fluxTest){
-  EXPECT_THROW(tester.set_fluxes(dblank),cyclus::StateError);
-  tester.set_fluxes(fluxes);
-}
-*/
+
 TEST_F(OrigenInterfaceTester,powerTest){
   EXPECT_THROW(tester.set_powers(dblank),cyclus::StateError);
   EXPECT_NO_THROW(tester.set_powers(powers));
@@ -303,6 +303,9 @@ TEST_F(OrigenInterfaceTester,solveTest){
 }
 
 TEST_F(OrigenInterfaceTester,resultTest){
+
+  const size_t ORIGEN_LIB_SIZE = 2237;
+
   id_tags.erase("Something");
   params.erase("Fuel Temperature");
   params["Moderator Density"] = 0.7332;
@@ -320,7 +323,7 @@ TEST_F(OrigenInterfaceTester,resultTest){
 
   std::vector<int> ids_out;
   tester.get_ids(ids_out);
-  EXPECT_EQ(1946,ids_out.size()) << "Resulting ID vector is not of the correct size.";
+  EXPECT_EQ(ORIGEN_LIB_SIZE,ids_out.size()) << "Resulting ID vector is not of the correct size.";
 
 
   std::vector<std::vector<double> > masses_out;
@@ -329,12 +332,15 @@ TEST_F(OrigenInterfaceTester,resultTest){
    
   EXPECT_EQ(times.size(),masses_out.size()) << "get_masses() returned an unexpected number of concentration vectors!";
   for(size_t i = 0; i < times.size(); i++){
-    EXPECT_EQ(1946,masses_out[i].size()) << "Masses vector #" << i << " for time " << times[i] << " is of the incorrect size.";
+    EXPECT_EQ(ORIGEN_LIB_SIZE,masses_out[i].size()) << "Masses vector #" << i 
+              << " for time " << times[i] << " is of the incorrect size.";
 
     std::vector<double> mass_out;
     tester.get_masses_at(i,mass_out);
     for(size_t j = 0; j < masses_out[i].size(); j++){
-      EXPECT_EQ(mass_out[j],masses_out[i][j]) << "Disagreement between return of get_masses() and get_masses_at() for " << ids_out [j] << " at time " << times[i] << ".";
+      EXPECT_EQ(mass_out[j],masses_out[i][j]) 
+         << "Disagreement between return of get_masses() and get_masses_at() for " 
+         << ids_out [j] << " at time " << times[i] << ".";
     }
   }
 

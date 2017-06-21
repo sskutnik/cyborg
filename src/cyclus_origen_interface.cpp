@@ -13,6 +13,8 @@
 #include "ScaleUtils/IO/DB.h"
 #include "ScaleUtils/IO/Utils.h"
 
+#include "Origen/Core/fn/print.h"
+
 namespace OrigenInterface {
 
 void cyclus2origen::set_lib_names(const std::vector<std::string> &lib_names){
@@ -180,9 +182,9 @@ void cyclus2origen::set_materials(const std::vector<int> &ids, const std::vector
     throw ValueError(ss.str());
   }
   std::string name = "cyclus_";
-  if(std::string::npos==b_interp_name.find(name)){
-    name.append(b_interp_name);
-  }
+  //if(std::string::npos==b_interp_name.find(name)){
+  //  name.append(b_interp_name);
+  //}
 
   std::vector<int> tmp_ids;
   tmp_ids.assign(ids.begin(),ids.end());
@@ -216,14 +218,15 @@ void cyclus2origen::set_materials(const std::vector<int> &ids, const std::vector
 
   b_mat = Origen::SP_Material(new Origen::Material(b_lib_interp,name,id,b_vol));
   b_mat->set_concs_at(*b_concs,0);
+
+  // Takes b_lib and interpolates to new burnups based on b_times and b_powers.
+  b_lib = prob_spec_lib(b_lib_interp,b_times,b_fluxes,b_powers); 
 /*
   std::cerr << "Material::initial_mass() = " << b_mat->initial_mass() << " grams." 
             << std::endl;
   std::cerr << "Material::initial_hm_mass() = " << b_mat->initial_hm_mass() 
             << " grams." << std::endl;
 */
-  // Takes b_lib and interpolates to new burnups based on b_times and b_powers.
-  prob_spec_lib(b_lib_interp,b_times,b_fluxes,b_powers); 
 
 }
 
@@ -350,7 +353,6 @@ void cyclus2origen::list_parameters() const{
     ss << "Cyborg::reactor::list_parameters(" << __LINE__ 
        << ") : No parameters found on this tag manager!" << std::endl;
     cyclus::Warn<cyclus::WARNING>(ss.str());
-    //throw StateError(ss.str());
   }
   for(auto tag : b_tm->listInterpTags()){
     std::cout << "Interp tag name: " << tag << ", value: " << b_tm->getInterpTag(tag) 
@@ -360,24 +362,29 @@ void cyclus2origen::list_parameters() const{
 
 void cyclus2origen::get_parameters(std::vector<std::string> &names, std::vector<double> &values) const{
   using cyclus::StateError;
-  if(!names.empty()){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::get_parameters(" << __LINE__ 
-       << ") : Return vector for names not empty upon function call!" << std::endl;
-    throw StateError(ss.str());
-  }
-  if(!values.empty()){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::get_parameters(" << __LINE__ 
-       << ") : Return vector for values not empty upon function call!" << std::endl;
-    throw StateError(ss.str());
-  }
+
   if(b_tm==NULL){
     std::stringstream ss;
     ss << "Cyborg::reactor::get_parameters(" << __LINE__ 
        << ") : No tag manager present with parameters!" << std::endl;
     throw StateError(ss.str());
   }
+
+  if(!names.empty()){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::get_parameters(" << __LINE__ 
+       << ") : Return vector for names not empty upon function call!" << std::endl;
+    cyclus::Warn<cyclus::WARNING>(ss.str());
+    names.clear();
+  }
+  if(!values.empty()){
+    std::stringstream ss;
+    ss << "Cyborg::reactor::get_parameters(" << __LINE__ 
+       << ") : Return vector for values not empty upon function call!" << std::endl;
+    cyclus::Warn<cyclus::WARNING>(ss.str());
+    values.clear();
+  }
+
   for(auto tag : b_tm->listInterpTags()){
     names.push_back(tag);
     values.push_back(b_tm->getInterpTag(tag));
@@ -400,6 +407,8 @@ void cyclus2origen::interpolate() {
     throw StateError(ss.str());
   }
 
+  // Check to see if we can reuse the list of libraries we've already interpolated before
+  // i.e., avoids the need for costly disk I/O to search for matching libraries
   if(b_tagman_list.size() > 0)
   {
     for(auto& tm : b_tagman_list)
@@ -412,81 +421,21 @@ void cyclus2origen::interpolate() {
       }
     }
   }
-/*
-  if(b_lib_names.size()==0 && b_lib_path.size()==0 && b_tagman_list.size()==0){
-    std::stringstream ss;
-    ss << "Cyborg::reactor::interpolate(" << __LINE__ << ") : No library names or path specified!" << std::endl;
-    throw cyclus::ValueError(ss.str());
-  }
-*/
+
   std::vector<Origen::TagManager> libTMs;
-  if(b_lib_names.size()==0 && b_tagman_list.size()==0){
-
-    if(b_lib_path.size()==0) {
-      std::stringstream ss;
-      ss << "Cyborg::reactor::interpolate(" << __LINE__  
-         << ") : No library names or path specified!" << std::endl;
-      throw cyclus::ValueError(ss.str());
-    }
-
-    struct dirent *drnt;
-    auto dr = opendir(b_lib_path.c_str());
-    std::string midstring = "";
-    if(&(b_lib_path.back()) != "/") midstring = "/";
-    while(true){
-      drnt=readdir(dr);
-      if(!drnt) break;
-      std::string lib_name (drnt->d_name);
-      if(lib_name=="." || lib_name=="..") continue;
-      lib_name = b_lib_path + midstring + lib_name;
-      struct stat buffer;
-      if(stat(lib_name.c_str(), &buffer) != 0){
-        std::cout << lib_name << " doesn't exist!" << std::endl;
-      }else{
-        b_lib_names.push_back(lib_name);
-      }
-    }
-    closedir(dr);
-
-    // Bail if no libraries specified
-    if(b_lib_names.size() == 0) {
-      std::stringstream ss;
-      ss << "Cyborg::reactor::interpolate(" << __LINE__ 
-         << ") : No libraries specified or found!" << std::endl;
-      throw ValueError(ss.str());
-    }
-
-    //std::vector<Origen::SP_TagManager> tms = Origen::collectLibrariesParallel(b_lib_names);
-    // Serial for now until I can get the repo update working
-    std::vector<Origen::SP_TagManager> tms = Origen::collectLibraries(b_lib_names); 
-    for(auto& tm : tms) libTMs.push_back(*tm);
-
-    // Bail if no libraries found
-    if(libTMs.size() == 0) {
-      std::stringstream ss;
-      ss << "Cyborg::reactor::interpolate(" << __LINE__ 
-         << ") : No libraries found that have tag managers!" << std::endl;
-      throw ValueError(ss.str());
-    }
-
-    // Down-select to libraries matching specified ID tags
-    libTMs = Origen::selectLibraries(libTMs,*b_tm);
-    b_tagman_list.clear();
-    for(auto tm : libTMs) b_tagman_list.push_back(std::make_shared<Origen::TagManager>(tm));
-    if(b_tagman_list.size() == 0){
-      std::stringstream ss;
-      ss << "Cyborg::reactor::interpolate(" << __LINE__ 
-         << ") : No libraries found that match specified ID tags!" << std::endl;
-      throw ValueError(ss.str());
-    }
+  if(b_lib_names.size()==0 && b_tagman_list.size()==0) {
+     // Find on-disk Origen libraries matching tags specified in b_tm
+     libTMs = collectOrigenTMs();
   }
-  else
-  {
+  else {
     // We already have a list of identified libraries to interpolate
     for(auto& tm : b_tagman_list) libTMs.emplace_back(*tm);
   }
+  
+  this->list_parameters();
   b_lib_interp = Origen::interpLibraryND(libTMs,*b_tm);
-  b_interp_name = (b_lib_interp->scp_tag_manager())->getIdTag("Filename");
+  //Origen::printFissionXs(*b_lib_interp, 0, false, "$ZZ$AAA$I", 4, 1, std::cerr);
+  //b_interp_name = (b_lib_interp->scp_tag_manager())->getIdTag("Filename");
 }
 
 void cyclus2origen::solve() {
@@ -556,7 +505,7 @@ void cyclus2origen::solve(std::vector<double>& times, std::vector<double>& fluxe
    std::vector<double> dt_rel(4, 0.25);
 
    auto powFluxIter = (powers.size() > 0) ? powers.begin() : fluxes.begin();
-   for(size_t i = 0; i < num_steps; i++){             
+   for(size_t i = 0; i < num_steps; ++i) {
      b_mat->add_step((times[i+1]-times[i])*Origen::Time::factor<Origen::Time::SECONDS>(this->b_timeUnits));
      b_mat->set_transition_matrix(b_lib->newsp_transition_matrix_at(libPos));
       
@@ -602,7 +551,6 @@ void cyclus2origen::get_masses_at(int p, std::vector<double> &masses_out, const 
 
    masses_out.clear();
    b_mat->get_concs_at(tmpConcs.get(), p);                    // Get values.
-//   tmpConcs->set_units(Origen::ConcentrationUnit::KILOGRAMS); // Set units.
    tmpConcs->set_units(concUnits); // Set units.
  
    tmpConcs->get_vals(masses_out); 
@@ -734,11 +682,11 @@ std::vector<double> cyclus2origen::get_burnups() const {
      ss << "Cyborg::reactor::get_burnups(" << __LINE__ 
         << ") : No burnup steps found!" << std::endl;
      throw StateError(ss.str());
-     return burnups;
    }
    for(size_t i=0; i < b_mat->nsteps(); ++i) {
       burnups.push_back(this->burnup_at(i));
    }
+   return burnups;
 }
 
 std::vector<double> cyclus2origen::get_times(std::string units) const { 
@@ -751,7 +699,6 @@ std::vector<double> cyclus2origen::get_times(std::string units) const {
      ss << "Cyborg::reactor::get_times(" << __LINE__ 
         << ") : No times found!" << std::endl;
      throw StateError(ss.str());
-     return times;
    }
   
    Origen::Time::UNITS tmpUnits = Origen::Time::units(units.c_str());
@@ -760,7 +707,6 @@ std::vector<double> cyclus2origen::get_times(std::string units) const {
      ss << "Cyborg::reactor::get_times(" << __LINE__ << ") : Unknown time units: "
         << units << "; unable to convert times!" << std::endl;
      throw StateError(ss.str());
-     return times;
    }
    // Convert power units if requested
    if( tmpUnits != b_timeUnits && tmpUnits != Origen::Time::UNITS::UNKNOWN) {
@@ -783,7 +729,6 @@ std::vector<double> cyclus2origen::get_powers(std::string units) const {
      std::stringstream ss;
      ss << "Cyborg::reactor::get_powers(" << __LINE__ << ") : No powers found!" << std::endl;
      throw StateError(ss.str());
-     return powers;
    }
   
    Origen::Power::UNITS tmpUnits = Origen::Power::units(units.c_str());
@@ -792,7 +737,6 @@ std::vector<double> cyclus2origen::get_powers(std::string units) const {
      ss << "Cyborg::reactor::get_powers(" << __LINE__ << ") : Unknown power units: " 
         << units << "; unable to convert powers!" << std::endl;
      throw StateError(ss.str());
-     return powers;
    }
    // Convert power units if requested
    if( tmpUnits != b_powerUnits) {
@@ -806,28 +750,13 @@ std::vector<double> cyclus2origen::get_powers(std::string units) const {
    return powers;
 }
 
-void cyclus2origen::prob_spec_lib(Origen::SP_Library lib, const std::vector<double> &times, 
-                                  const std::vector<double> &fluxes, const std::vector<double> &powers) {
+Origen::SP_Library cyclus2origen::prob_spec_lib(Origen::SP_Library lib, const std::vector<double> &times, 
+                                  const std::vector<double> &fluxes, const std::vector<double> &powers) const
+{
+
+   using cyclus::ValueError;
    std::vector<double> timeTmp = times;
    std::vector<double> powTmp; 
-
-   if(b_timeUnits!=Origen::Time::DAYS){
-      //for(auto &time : timeTmp) time *= Origen::Time::factor(Origen::Time::DAYS, b_timeUnits);
-      double timeFactor = Origen::Time::factor(Origen::Time::DAYS, b_timeUnits);
-      std::transform(timeTmp.begin(), timeTmp.end(), timeTmp.begin(),
-                     std::bind1st(std::multiplies<double>(),timeFactor));
-   }
-   if(!fluxes.empty() && powers.empty() ) {
-      for(auto& flux : fluxes) powTmp.push_back(flux*b_mat->power_factor_bos());
-   } else if(!(fluxes.empty() || powers.empty()) ) {
-      std::stringstream ss;
-      ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ 
-         << ") : Both the fluxes and powers vectors have values! Choose one!" << std::endl;
-      throw cyclus::ValueError(ss.str());
-   }
-   else {
-      powTmp = powers;
-   }
 
    if(times.size()!=powers.size()+1){
       std::stringstream ss;
@@ -835,7 +764,26 @@ void cyclus2origen::prob_spec_lib(Origen::SP_Library lib, const std::vector<doub
          << ") : Powers or fluxes vectors not exactly 1 element shorter than times vector!" 
          << std::endl << "Powers or fluxes vector has " << powers.size() 
          << " elements and times vector has " << times.size() << " elements." << std::endl;
-      throw cyclus::ValueError(ss.str());
+      throw ValueError(ss.str());
+   }
+
+   if(!fluxes.empty() && powers.empty() ) {
+      for(auto& flux : fluxes) powTmp.push_back(flux*b_mat->power_factor_bos());
+   } else if(!(fluxes.empty() || powers.empty()) ) {
+      std::stringstream ss;
+      ss << "Cyborg::reactor::prob_spec_lib(" << __LINE__ 
+         << ") : Both the fluxes and powers vectors have values! Choose one!" << std::endl;
+      throw ValueError(ss.str());
+   }
+   else {
+      powTmp = powers;
+   }
+
+   if(b_timeUnits!=Origen::Time::DAYS){
+      //for(auto &time : timeTmp) time *= Origen::Time::factor(Origen::Time::DAYS, b_timeUnits);
+      double timeFactor = Origen::Time::factor(Origen::Time::DAYS, b_timeUnits);
+      std::transform(timeTmp.begin(), timeTmp.end(), timeTmp.begin(),
+                     std::bind1st(std::multiplies<double>(),timeFactor));
    }
 
    std::vector<double> cycBU, interpBU;
@@ -861,7 +809,10 @@ void cyclus2origen::prob_spec_lib(Origen::SP_Library lib, const std::vector<doub
          << std::endl;
       throw cyclus::StateError(ss.str());
    }
-   b_lib = lib->interpolate_Interp1D(interpBU);
+   Origen::SP_Library buInterpLib = lib->interpolate_Interp1D(interpBU);
+   
+   //Origen::printFissionXs(*buInterpLib, 0, false, "$ZZ$AAA$I", 4, 1, std::cerr);
+   return buInterpLib;
 }
 
 const std::string cyclus2origen::get_tag_manager_string() const
@@ -872,21 +823,7 @@ const std::string cyclus2origen::get_tag_manager_string() const
         << ") : TagManager not initialized!" << std::endl;
      throw cyclus::StateError(ss.str());
   }
-/*
- * SES: Shouldn't need an interpolated library to hash the state; everything needed available pre-interpolation
-  if(!b_lib) {
-     std::stringstream ss;
-     ss << "Cyborg::reactor::get_tag_manager_string(" << __LINE__ << ") : ORIGEN library not yet initialized!" << std::endl;
-     throw cyclus::StateError(ss.str());
-  }
-  if(b_mat->nsteps()==0)
-  {
-    std::stringstream ss;
-    ss << "Cyborg::reactor::get_tag_manager_string(" << __LINE__ << ") : Depletion calculation has not yet occurred." << std::endl;
-    throw cyclus::StateError(ss.str());
-  }
-  //b_lib->get_tag_manager(tm);
-*/
+
   if(b_times.size() == 0 || b_powers.size() == 0) {
      std::stringstream ss;
      ss << "WARNING: Cyborg::reactor::get_tag_manager_string(" << __LINE__ 
@@ -902,26 +839,101 @@ const std::string cyclus2origen::get_tag_manager_string() const
     times << time << ",";
   }
 
-  std::string times_val = times.str();
-  times_val.pop_back();
-  std::stringstream times_name;
-  times_name << "Times (" << Origen::Time::name(b_timeUnits) << ")";
-  tm.setIdTag(times_name.str(),times_val);
-
-  std::stringstream powers;
-  for(auto power : b_powers)
-  {
-    powers << power << ",";
+  if(b_times.size() > 0) {
+     std::string times_val = times.str();
+     times_val.pop_back();
+     std::stringstream times_name;
+     times_name << "Times (" << Origen::Time::name(b_timeUnits) << ")";
+     tm.setIdTag(times_name.str(),times_val);
   }
 
-  std::string powers_val = powers.str();
-  powers_val.pop_back();
-  std::stringstream powers_name;
-  powers_name << "Powers (" << Origen::Power::name(b_powerUnits) << ")";
-  tm.setIdTag(powers_name.str(),powers_val);
+  if(b_powers.size() > 0) {
+     std::stringstream powers;
+     for(auto power : b_powers)
+     {
+       powers << power << ",";
+     }
+
+     std::string powers_val = powers.str();
+     powers_val.pop_back();
+     std::stringstream powers_name;
+      powers_name << "Powers (" << Origen::Power::name(b_powerUnits) << ")";
+     tm.setIdTag(powers_name.str(),powers_val);
+  }
 
   return tm.to_string();
 }
 
+std::vector<Origen::TagManager> cyclus2origen::collectOrigenTMs() {
+   using cyclus::ValueError;
 
+   if(b_lib_path.size()==0) {
+      std::stringstream ss;
+      ss << "Cyborg::reactor::collectOrigenTMs(" << __LINE__  
+         << ") : No library names or path specified!" << std::endl;
+      throw ValueError(ss.str());
+    }
+
+    struct dirent *drnt;
+    auto dr = opendir(b_lib_path.c_str());
+    std::string midstring = "";
+    if(&(b_lib_path.back()) != "/") midstring = "/";
+
+    while(drnt = readdir(dr)) {
+       //drnt=readdir(dr);
+       //if(!drnt) break;
+       std::string lib_name (drnt->d_name);
+       if(lib_name=="." || lib_name=="..") continue;
+       lib_name = b_lib_path + midstring + lib_name;
+
+       struct stat buffer;
+       if(stat(lib_name.c_str(), &buffer) != 0){
+          std::cout << lib_name << " doesn't exist!" << std::endl;
+       } 
+       else {
+          b_lib_names.push_back(lib_name);
+       }
+    }
+    closedir(dr);
+
+    // Bail if no libraries specified
+    if(b_lib_names.size() == 0) {
+      std::stringstream ss;
+      ss << "Cyborg::reactor::interpolate(" << __LINE__ 
+         << ") : No libraries specified or found!" << std::endl;
+      throw ValueError(ss.str());
+    }
+
+    // SES: IMPORTANT. We have to sort the library files (for now) for the sake of Origen::GridData_TransitionCoeff
+    //      Note that GridData should be doing this for us, but it's not...?
+    std::sort( b_lib_names.begin(), b_lib_names.end() );
+
+    //std::vector<Origen::SP_TagManager> tms = Origen::collectLibrariesParallel(b_lib_names);
+    // Serial for now until I can get the repo update working
+    std::vector<Origen::SP_TagManager> tms = Origen::collectLibraries(b_lib_names);
+    std::vector<Origen::TagManager> libTMs;
+    for(auto& tm : tms) libTMs.push_back(*tm);
+
+    // Bail if no libraries found
+    if(libTMs.size() == 0) {
+      std::stringstream ss;
+      ss << "Cyborg::reactor::interpolate(" << __LINE__ 
+         << ") : No libraries found that have tag managers!" << std::endl;
+      throw ValueError(ss.str());
+    }
+
+    // Down-select to libraries matching specified ID tags
+    libTMs = Origen::selectLibraries(libTMs,*b_tm);
+    b_tagman_list.clear();
+    for(auto tm : libTMs) {
+       b_tagman_list.push_back(std::make_shared<Origen::TagManager>(tm));
+    }
+    if(b_tagman_list.size() == 0){
+      std::stringstream ss;
+      ss << "Cyborg::reactor::interpolate(" << __LINE__ 
+         << ") : No libraries found that match specified ID tags!" << std::endl;
+      throw ValueError(ss.str());
+    }
+    return libTMs;
+  } // end collectOrigenTMs
 }//namespace
