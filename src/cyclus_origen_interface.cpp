@@ -114,10 +114,12 @@ void cyclus2origen::list_id_tags() const{
     cyclus::Warn<cyclus::WARNING>(ss.str());
     //throw StateError(ss.str());
   }
+/*
   for(auto tags : b_tm->listIdTags()){
     std::cout << "Tag name: " << tags << ", value: " << b_tm->getIdTag(tags) 
               << "." << std::endl;
   }
+*/
 }
 
 void cyclus2origen::get_id_tags(std::vector<std::string> &names, std::vector<std::string> &values) const{
@@ -904,8 +906,10 @@ std::vector<Origen::TagManager> cyclus2origen::collectOrigenTMs() {
       throw ValueError(ss.str());
     }
 
-    // SES: IMPORTANT. We have to sort the library files (for now) for the sake of Origen::GridData_TransitionCoeff
-    //      Note that GridData should be doing this for us, but it's not...?
+    // SES: IMPORTANT BUT TEMPORARY. 
+    // We have to sort the library files (for now) for the sake of 
+    // Origen::GridData_TransitionCoeff. This has now been fixed in the 
+    // dev build of SCALE, but "officially" this stays on until SCALE 6.3...
     std::sort( b_lib_names.begin(), b_lib_names.end() );
 
     //std::vector<Origen::SP_TagManager> tms = Origen::collectLibrariesParallel(b_lib_names);
