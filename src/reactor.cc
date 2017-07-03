@@ -423,6 +423,7 @@ void Reactor::setup_origen_interp_params(OrigenInterface::cyclus2origen& react, 
        }      
        react.add_parameter("Plutonium Content",fr_pu);
        react.add_parameter("Plutonium-239 Content",fr_pu239);
+       react.list_parameters();
     }
    
     //TODO: Do we do any tag vetting here, or just let ORIGEN do it?
