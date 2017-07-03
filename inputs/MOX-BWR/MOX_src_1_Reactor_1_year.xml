@@ -1,0 +1,87 @@
+<!-- 1 Enrichment 1 reactor 1 month -->
+
+<simulation>
+  <control>
+    <duration>13</duration>
+    <startmonth>1</startmonth>
+    <startyear>2017</startyear>
+  </control>
+
+  <archetypes>
+    <spec> <lib>cycamore</lib> <name>Source</name> </spec>
+    <spec> <lib>cyborg</lib>   <name>Reactor</name> </spec>
+    <spec> <lib>cycamore</lib> <name>Sink</name> </spec>
+    <spec> <lib>agents</lib>   <name>NullRegion</name> </spec>
+    <spec> <lib>agents</lib>   <name>NullInst</name> </spec>
+  </archetypes>
+
+<!--  Arbitrary source of RGPu; designed just to simulate MOX feed to reactor -->
+
+  <facility>
+    <name>Pu_Source</name>
+    <config>
+      <Source>
+        <outcommod>RGPu</outcommod>
+        <outrecipe>MOX_4.5pct_recipe</outrecipe>
+        <throughput>3000</throughput>
+      </Source>
+    </config>
+  </facility>
+
+  <!-- Reactor set to run for 12 months.
+       Initial loading is a fresh core. -->
+
+  <facility>
+    <name>Reactor</name>
+    <lifetime>14</lifetime>
+    <config>
+      <Reactor>
+        <power_cap>100.0</power_cap>
+        <assem_size>100.0</assem_size>
+        <fuel_recipes>    <val>MOX_4.5pct_recipe</val>      </fuel_recipes>
+        <fuel_incommods>  <val>RGPu</val>           </fuel_incommods>
+        <tags> <item> <tag>Moderator Density</tag> <value>0.55</value> </item> </tags>
+        <cycle_time>12</cycle_time>
+        <refuel_time>1</refuel_time>
+        <assembly_type>mox_ge10x10-8</assembly_type>
+        <fuel_type>MOX</fuel_type>
+        <n_assem_core>30</n_assem_core>
+        <n_assem_batch>10</n_assem_batch>
+        <n_assem_spent>100</n_assem_spent>
+        <spent_fuel>hot_MOX_UNF</spent_fuel>
+      </Reactor>
+    </config>
+  </facility>
+
+  <region>
+    <name>SingleRegion</name>
+    <config><NullRegion/></config>
+    <institution>
+      <name>SingleInstitution</name>
+      <initialfacilitylist>
+        <entry>
+          <prototype>Pu_Source</prototype>
+          <number>1</number>
+        </entry>
+        <entry>
+          <prototype>Reactor</prototype>
+          <number>1</number>
+        </entry>
+      </initialfacilitylist>
+      <config><NullInst/></config>
+    </institution>
+  </region> 
+
+  <recipe>
+    <name>MOX_4.5pct_recipe</name>
+    <basis>mass</basis>
+    <nuclide> <id>922350000</id> <comp> 0.67900  </comp> </nuclide>
+    <nuclide> <id>922380000</id> <comp> 94.82095 </comp> </nuclide>
+    <nuclide> <id>942380000</id> <comp> 0.06076  </comp> </nuclide> 
+    <nuclide> <id>942390000</id> <comp> 2.79000  </comp> </nuclide> 
+    <nuclide> <id>942400000</id> <comp> 1.12160  </comp> </nuclide> 
+    <nuclide> <id>942410000</id> <comp> 0.31448  </comp> </nuclide> 
+    <nuclide> <id>942420000</id> <comp> 0.21321  </comp> </nuclide> 
+  </recipe>
+
+</simulation>

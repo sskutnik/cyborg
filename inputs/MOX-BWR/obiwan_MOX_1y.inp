@@ -1,0 +1,61 @@
+=shell
+  rm ${RTNDIR}/*.bof
+  rm ${RTNDIR}/*.f71
+  obiwan interp -idtags='Assembly Type=mox_ge10x10-8' -interptags='Plutonium-239 Content=62.0,Plutonium Content=4.5,Moderator Density=0.55' ${HOME}/tagged_libs/mox_g10*.f33
+  obiwan convert -thin=1 -i -interp='cubic' -tvals='[6087.6,18262.8,30438]' ${TMPDIR}/InterpLib.bof
+end
+=origens
+solver{
+  type=CRAM  
+} 
+case(c1_up){
+    lib{ file="InterpLib.f33" pos=1 }
+    time=[2i 10 365.256388]
+    power=[4r33.3333]
+    mat { units="grams" iso=[ u235=6790.05 u238=948209.95 pu238=607.6 pu239=27900 
+                              pu240=11215.99 pu241=3144.79 pu242=2132.09] }
+'    mat { units="grams" iso=[ o=1.2e5 u235=40000 u238=960000] }
+}
+
+case(c1_down){
+    time{ 
+         t=[8l 0.1 30.0 ]
+         start=0.0
+    }
+}
+
+case(c2_up){
+    lib{ pos=2 }
+    power=[4r33.3333]
+    time{
+      t=[2i 10 365.256388]
+      start=0.0
+    }
+}
+
+case(c2_down){
+    time{ 
+         t=[8l 0.1 30.0 ]
+         start=0.0
+    }
+}
+case(c3_up){
+    lib{ pos=3 }
+    power=[4r33.3333]
+    time{
+      t=[2i 10 365.256388]
+      start=0.0
+    }
+    save{
+      steps=LAST
+      file="MOX_1y_obiwan.f71"
+    }
+}
+end
+=opus
+  library="InterpLib.f33"
+  data="MOX_1y_obiwan.f71"
+  units=gram
+  libtype=act
+  nrank=12
+end

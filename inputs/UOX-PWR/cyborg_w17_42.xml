@@ -1,0 +1,90 @@
+<!-- 1 Enrichment 1 reactor 1 month -->
+
+<simulation>
+  <control>
+    <duration>13</duration>
+    <startmonth>1</startmonth>
+    <startyear>2000</startyear>
+<!--  <solver><config><coin-or><timeout>100</timeout><verbose>1</verbose></coin-or></config></solver> -->
+  </control>
+
+  <archetypes>
+    <spec> <lib>cycamore</lib> <name>Enrichment</name> </spec>
+    <spec> <lib>cyborg</lib>   <name>Reactor</name> </spec>
+    <spec> <lib>cycamore</lib> <name>Sink</name> </spec>
+    <spec> <lib>agents</lib>   <name>NullRegion</name> </spec>
+    <spec> <lib>agents</lib>   <name>NullInst</name> </spec>
+  </archetypes>
+
+  <facility>
+    <name>Enrichment</name>
+    <config>
+      <Enrichment>
+        <feed_commod>natl_u</feed_commod>
+        <feed_recipe>natl_u</feed_recipe>
+        <product_commod>enriched_u</product_commod>
+        <tails_commod>ef_tails</tails_commod>
+        <swu_capacity>60000.0</swu_capacity>
+        <initial_feed>2e7</initial_feed>
+      </Enrichment>
+    </config>
+  </facility>
+
+  <!-- Reactor set to run for 12 months.
+       Initial loading is a fresh core. -->
+
+  <facility>
+    <name>Reactor</name>
+    <lifetime>14</lifetime>
+    <config>
+      <Reactor>
+        <power_cap>100.0</power_cap>
+        <assem_size>100.0</assem_size>
+        <fuel_recipes>    <val>lwr_fuel_recipe_42</val>      </fuel_recipes>
+        <fuel_incommods>  <val>enriched_u</val>           </fuel_incommods>
+        <cycle_time>12</cycle_time>
+        <refuel_time>1</refuel_time>
+        <assembly_type>w17x17</assembly_type>
+        <fuel_type>UOX</fuel_type>
+        <n_assem_core>30</n_assem_core>
+        <n_assem_batch>10</n_assem_batch>
+        <n_assem_spent>100</n_assem_spent>
+        <spent_fuel>hot_UNF</spent_fuel>
+      </Reactor>
+    </config>
+  </facility>
+
+  <region>
+    <name>SingleRegion</name>
+    <config><NullRegion/></config>
+    <institution>
+      <name>SingleInstitution</name>
+      <initialfacilitylist>
+        <entry>
+          <prototype>Enrichment</prototype>
+          <number>1</number>
+        </entry>
+        <entry>
+          <prototype>Reactor</prototype>
+          <number>1</number>
+        </entry>
+      </initialfacilitylist>
+      <config><NullInst/></config>
+    </institution>
+  </region>
+
+  <recipe>
+    <name>natl_u</name>
+    <basis>mass</basis>
+    <nuclide> <id>922350000</id> <comp>0.711</comp> </nuclide>
+    <nuclide> <id>922380000</id> <comp>99.289</comp> </nuclide>
+  </recipe>
+
+  <recipe>
+    <name>lwr_fuel_recipe_42</name>
+    <basis>mass</basis>
+    <nuclide> <id>922350000</id> <comp>4.2</comp> </nuclide>
+    <nuclide> <id>922380000</id> <comp>95.8</comp> </nuclide>
+  </recipe>
+
+</simulation>
