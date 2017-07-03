@@ -15,21 +15,21 @@ Details on the specifications of each case are as follows.
 UOX (PWR)
 ~~~~~~~~~~~
 
-The UOX-PWR case consists of a Westinghouse 17x17 PWR type assembly, with an initial U-235 enrichment of 4.2%. The assembly is irradiated for 3 12-month cycles at a specific power of 33.333 MW/MTU (W/g) for a total discharge burnup of 33,000 MWd/MTU.
+The UOX-PWR case consists of a Westinghouse 17x17 PWR type assembly, with an initial U-235 enrichment of 4.2%. The assembly is irradiated for 3 12-month cycles at a specific power of 33.333 MW/MTU (W/g) for a total discharge burnup of 36,525 MWd/MTU.
 
 For each batch, an inter-cycle decay time of 1 month is assumed.
 
 UOX (BWR)
 ~~~~~~~~~~~
 
-The UOX-BWR case consists of a GE 10x10 BWR assembly type with UOX fuel, with an initial average U-235 enrichment of 4.2% and an average moderator density of 0.55 g/cc. The assembly is irradited for 3 12-month cycles at a specific power of 33.333 MW/MTU, for a total discharge burnup of 33,000 MWd/MTU.
+The UOX-BWR case consists of a GE 10x10 BWR assembly type with UOX fuel, with an initial average U-235 enrichment of 4.2% and an average moderator density of 0.55 g/cc. The assembly is irradited for 3 12-month cycles at a specific power of 33.333 MW/MTU, for a total discharge burnup of 36,525 MWd/MTU.
 
 For each batch, an inter-cycle decay time of 1 month is assumed.
 
 MOX (BWR)
 ~~~~~~~~~~~
 
-The MOX-BWR case consists of a GE 10x10-8 BWR assembly type with MOX fuel, with an initial Pu-239 fraction of 62% and a plutonium enrichment of 4.5%, with an average moderator density of 0.55 g/cc. Like the prior cases, the assembly is irradiated for 3 12-month cycles at a specific power of 33.333 MW/MTU, for a total discharge burnup of 33,000 MWd/MTU.
+The MOX-BWR case consists of a GE 10x10-8 BWR assembly type with MOX fuel, with an initial Pu-239 fraction of 62% and a plutonium enrichment of 4.5%, with an average moderator density of 0.55 g/cc. Like the prior cases, the assembly is irradiated for 3 12-month cycles at a specific power of 33.333 MW/MTU, for a total discharge burnup of 36,525 MWd/MTU.
 
 For each batch, an inter-cycle decay time of 1 month is assumed.
 
