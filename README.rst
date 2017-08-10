@@ -58,9 +58,7 @@ be able to build directly against the SCALE shared libraries. However, if using
 another version (e.g., gcc 4.9+ or 5.0+), you will need to rebuild SCALE from 
 source. Please consult the `SCALE manual <https://www.ornl.gov/sites/default/files/SCALE%20Code%20System.pdf>`_ for `instructions on building SCALE <https://www.ornl.gov/sites/default/files/SCALE%20Code%20System.pdf#page=71>`_.
 
-CyBORG doesn't require any additional third-party libraries beyond what is 
-required for Cyclus and SCALE; as long as you can build these two packages 
-on your target system, you can build CyBORG.
+While CyBORG itself does not rely on any third-party libraries, the Origen libraries CyBORG links to currently rely on the `Qt Core library <https://www.qt.io>`_ for certain functions (which is available from most package managers or via direct download). While binary distributions of `SCALE provided by RSICC <https://rsicc.ornl.gov/PackageDetail.aspx?p=SCALE%206.2.1&id=C00834&cpu=MNYCP&v=02&t=A%20Comprehensive%20Modeling%20and%20Simulation%20Suite%20for%20Nuclear%20Safety%20Analysis%20and%20Design;%20Includes%20ORIGEN%20and%20AMPX.>`_ inclue the QtCore library, they do not at this time include the required header files. Thus, CyBORG currently requires the Qt Core library in order to properly compile. (This restriction may be lifted in future versions of SCALE).
 
 Building CyBORG
 ~~~~~~~~~~~~~~~
