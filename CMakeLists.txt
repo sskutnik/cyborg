@@ -148,18 +148,31 @@ IF(NOT CYCLUS_DOC_ONLY)
     MESSAGE("--    SQLITE3 Include directories: ${SQLITE3_INCLUDE_DIR}")
     MESSAGE("--    SQLITE3 Libraries: ${SQLITE3_LIBRARIES}")
 
-    # Find Qt libraries (required for ORIGEN)
-    # Note that ${QT_USE_FILE} sets up required libraries for Qt
-    # See https://cmake.org/cmake/help/cmake2.6docs.html#module%3aFindQt4
-    FIND_PACKAGE( Qt COMPONENTS QtCore REQUIRED )
-    include(${QT_USE_FILE})
-    SET(CYBORG_INCLUDE_DIRS ${CYBORG_INCLUDE_DIRS} ${QT_INCLUDE_DIR} )
-
-    # find SCALE libraries (for ORIGEN)
     # Link ONLY as necessary (i.e., OrigenInterface) to avoid gtest conflict via Nemesis
     FIND_PACKAGE(SCALE REQUIRED)
     SET(CYBORG_INCLUDE_DIRS ${SCALE_INCLUDE_DIRS} ${CYBORG_INCLUDE_DIRS})
     SET(LIBS ${LIBS} ${SCALE_LIBRARIES})
+
+    # Find Qt libraries (required by Origen)
+    # Note that ${QT_USE_FILE} sets up required libraries for Qt
+    # See https://cmake.org/cmake/help/cmake2.6docs.html#module%3aFindQt4
+    IF(NOT SCALE_QT_CORE)
+       # Try finding Qt3 or Qt4 first. If this fails, try Qt5.
+       FIND_PACKAGE( Qt COMPONENTS QtCore REQUIRED )
+       include(${QT_USE_FILE})
+       IF(NOT QT_INCLUDE_DIR)
+         FIND_PACKAGE(Qt5 COMPONENTS QtCore OPTIONAL)
+         SET(QT_INCLUDE_DIR ${QT5_DIR})
+       ENDIF()
+       MESSAGE("--   QT_INCLUDE_DIR: ${QT_INCLUDE_DIR}")
+    ENDIF()
+    # Fail if we can't find some version of Qt
+    IF(NOT QT_INCLUDE_DIR)
+       SET(QT_MESSAGE "Qt Core package not found. 
+           Please make Qt is installed if building SCALE from source.")
+       MESSAGE(FATAL_ERROR "${QT_MESSAGE}")
+    ENDIF()
+    SET(CYBORG_INCLUDE_DIRS ${CYBORG_INCLUDE_DIRS} ${QT_INCLUDE_DIR} )
 
     # include all the directories we just found
     INCLUDE_DIRECTORIES(${CYBORG_INCLUDE_DIRS})
