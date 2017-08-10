@@ -56,7 +56,7 @@ Note that the SCALE 6.2.1 release libraries are compiled using GNU gcc 4.8.3;
 thus, if compiling Cyclus and CyBORG with a similar version of gcc, you should
 be able to build directly against the SCALE shared libraries. However, if using
 another version (e.g., gcc 4.9+ or 5.0+), you will need to rebuild SCALE from 
-source. Please consult the SCALE README for instructions on building SCALE.
+source. Please consult the `SCALE manual <https://www.ornl.gov/sites/default/files/SCALE%20Code%20System.pdf>`_ for `instructions on building SCALE <https://www.ornl.gov/sites/default/files/SCALE%20Code%20System.pdf#page=71>`_.
 
 CyBORG doesn't require any additional third-party libraries beyond what is 
 required for Cyclus and SCALE; as long as you can build these two packages 
