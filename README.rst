@@ -50,7 +50,7 @@ Installation requirements
 To install CyBORG, you'll need the following:
 
 * SCALE v6.2.1 
-* `Cyclus <https://github.com/cyclus/cyclus>`_ (with `Cycamore <https://cyclus.github.com/cyclus/cycamore>`_)
+* `Cyclus <https://github.com/cyclus/cyclus>`_ (with `Cycamore <https://github.com/cyclus/cycamore>`_)
 
 Note that the SCALE 6.2.1 release libraries are compiled using GNU gcc 4.8.3; 
 thus, if compiling Cyclus and CyBORG with a similar version of gcc, you should
