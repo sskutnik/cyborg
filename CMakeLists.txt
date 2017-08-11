@@ -156,18 +156,20 @@ IF(NOT CYCLUS_DOC_ONLY)
     # Find Qt libraries (required by Origen)
     # Note that ${QT_USE_FILE} sets up required libraries for Qt
     # See https://cmake.org/cmake/help/cmake2.6docs.html#module%3aFindQt4
-    IF(NOT SCALE_QT_CORE)
+    IF(NOT DEFINED SCALE_QT_CORE)
        # Try finding Qt3 or Qt4 first. If this fails, try Qt5.
        FIND_PACKAGE( Qt COMPONENTS QtCore REQUIRED )
-       include(${QT_USE_FILE})
-       IF(NOT QT_INCLUDE_DIR)
+       IF(DEFINED QT_USE_FILE)
+          include(${QT_USE_FILE})
+       ENDIF()
+       IF(NOT DEFINED QT_INCLUDE_DIR)
          FIND_PACKAGE(Qt5 COMPONENTS QtCore OPTIONAL)
          SET(QT_INCLUDE_DIR ${QT5_DIR})
        ENDIF()
        MESSAGE("--   QT_INCLUDE_DIR: ${QT_INCLUDE_DIR}")
     ENDIF()
     # Fail if we can't find some version of Qt
-    IF(NOT QT_INCLUDE_DIR)
+    IF(NOT DEFINED QT_INCLUDE_DIR)
        SET(QT_MESSAGE "Qt Core package not found. 
            Please make Qt is installed if building SCALE from source.")
        MESSAGE(FATAL_ERROR "${QT_MESSAGE}")
